@@ -1,24 +1,42 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
+import { AppHeader } from "@/components/AppHeader";
+import { BottomNav } from "@/components/BottomNav";
+import { ChatWindow } from "@/components/ChatWindow";
+import { loadChatHistory, type StoredMessage } from "@/lib/chat.functions";
+
 export const Route = createFileRoute("/")({
+  ssr: false,
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
+  const load = useServerFn(loadChatHistory);
+  const { data, isLoading } = useQuery({
+    queryKey: ["chat", "history"],
+    queryFn: () => load(),
+  });
+
+  const initial: StoredMessage[] = data ?? [];
+
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
+    <div className="flex h-[100dvh] flex-col bg-background text-foreground">
+      <AppHeader
+        title="Il Quaderno"
+        subtitle="Pianificazione pasti · Giada & Francesco"
       />
+      <div className="flex-1 min-h-0 pb-16">
+        {isLoading ? (
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            Apro il quaderno…
+          </div>
+        ) : (
+          <ChatWindow initial={initial} />
+        )}
+      </div>
+      <BottomNav />
     </div>
   );
 }

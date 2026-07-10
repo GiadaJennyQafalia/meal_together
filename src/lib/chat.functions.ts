@@ -1,6 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
-import type { UIMessage } from "ai";
+
+export type StoredMessage = {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+};
 
 function server() {
   return createClient(
@@ -11,7 +16,7 @@ function server() {
 }
 
 export const loadChatHistory = createServerFn({ method: "GET" }).handler(
-  async (): Promise<UIMessage[]> => {
+  async (): Promise<StoredMessage[]> => {
     const sb = server();
     const { data, error } = await sb
       .from("chat_messages")
@@ -21,8 +26,8 @@ export const loadChatHistory = createServerFn({ method: "GET" }).handler(
     if (error) throw error;
     return (data ?? []).map((row) => ({
       id: String(row.id),
-      role: row.role as UIMessage["role"],
-      parts: [{ type: "text", text: row.content }],
+      role: row.role as StoredMessage["role"],
+      content: row.content as string,
     }));
   },
 );
