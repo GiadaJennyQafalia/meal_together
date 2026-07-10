@@ -1,0 +1,9 @@
+# Il Quaderno
+
+> App privata di pianificazione pasti e ricettario condiviso di Giada & Francesco.
+
+## Pagine
+
+- [Chat di pianificazione](/): assistente settimanale.
+- [Ricettario](/ricette): schede ricette condivise.
+- [Lista della spesa](/spesa): lista condivisa per reparto.

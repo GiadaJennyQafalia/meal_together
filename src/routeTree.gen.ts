@@ -9,38 +9,91 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SpesaRouteImport } from './routes/spesa'
+import { Route as RicetteRouteImport } from './routes/ricette'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as RicetteIdRouteImport } from './routes/ricette.$id'
+import { Route as ApiChatRouteImport } from './routes/api/chat'
 
+const SpesaRoute = SpesaRouteImport.update({
+  id: '/spesa',
+  path: '/spesa',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RicetteRoute = RicetteRouteImport.update({
+  id: '/ricette',
+  path: '/ricette',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RicetteIdRoute = RicetteIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => RicetteRoute,
+} as any)
+const ApiChatRoute = ApiChatRouteImport.update({
+  id: '/api/chat',
+  path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ricette': typeof RicetteRouteWithChildren
+  '/spesa': typeof SpesaRoute
+  '/api/chat': typeof ApiChatRoute
+  '/ricette/$id': typeof RicetteIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ricette': typeof RicetteRouteWithChildren
+  '/spesa': typeof SpesaRoute
+  '/api/chat': typeof ApiChatRoute
+  '/ricette/$id': typeof RicetteIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ricette': typeof RicetteRouteWithChildren
+  '/spesa': typeof SpesaRoute
+  '/api/chat': typeof ApiChatRoute
+  '/ricette/$id': typeof RicetteIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/ricette' | '/spesa' | '/api/chat' | '/ricette/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/ricette' | '/spesa' | '/api/chat' | '/ricette/$id'
+  id: '__root__' | '/' | '/ricette' | '/spesa' | '/api/chat' | '/ricette/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  RicetteRoute: typeof RicetteRouteWithChildren
+  SpesaRoute: typeof SpesaRoute
+  ApiChatRoute: typeof ApiChatRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/spesa': {
+      id: '/spesa'
+      path: '/spesa'
+      fullPath: '/spesa'
+      preLoaderRoute: typeof SpesaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ricette': {
+      id: '/ricette'
+      path: '/ricette'
+      fullPath: '/ricette'
+      preLoaderRoute: typeof RicetteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +101,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ricette/$id': {
+      id: '/ricette/$id'
+      path: '/$id'
+      fullPath: '/ricette/$id'
+      preLoaderRoute: typeof RicetteIdRouteImport
+      parentRoute: typeof RicetteRoute
+    }
+    '/api/chat': {
+      id: '/api/chat'
+      path: '/api/chat'
+      fullPath: '/api/chat'
+      preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
+interface RicetteRouteChildren {
+  RicetteIdRoute: typeof RicetteIdRoute
+}
+
+const RicetteRouteChildren: RicetteRouteChildren = {
+  RicetteIdRoute: RicetteIdRoute,
+}
+
+const RicetteRouteWithChildren =
+  RicetteRoute._addFileChildren(RicetteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  RicetteRoute: RicetteRouteWithChildren,
+  SpesaRoute: SpesaRoute,
+  ApiChatRoute: ApiChatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

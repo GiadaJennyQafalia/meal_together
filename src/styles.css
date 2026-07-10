@@ -5,17 +5,10 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Design system definition.
- *
- * The @theme inline block maps CSS custom properties to Tailwind utility
- * classes (e.g. --color-primary -> bg-primary, text-primary).
- *
- * The :root and .dark blocks define the actual color values using oklch.
- * All colors MUST use oklch format.
- *
- * To add a new semantic color:
- * 1. Add the variable to :root (light value) and .dark (dark value)
- * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ * "Il Quaderno" — quaderno di cucina condiviso di Giada & Francesco.
+ * Palette: Phthalo Green (fondo), Light Gray (schede), Mustard Green (accento),
+ * Deep Space Sparkle (Giada), Moonstone Blue (Francesco).
+ * Typography: Fraunces (titoli), Karla (testo), IBM Plex Mono (numeri).
  */
 
 @theme inline {
@@ -59,77 +52,81 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-giada: var(--giada);
+  --color-giada-foreground: var(--giada-foreground);
+  --color-francesco: var(--francesco);
+  --color-francesco-foreground: var(--francesco-foreground);
+  --color-paper: var(--paper);
+  --color-paper-foreground: var(--paper-foreground);
+  --font-serif: "Fraunces", "Iowan Old Style", Georgia, serif;
+  --font-sans: "Karla", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
+  --radius: 0.5rem;
+
+  /* Palette */
+  --phthalo: #19350C;      /* fondo scuro */
+  --paper-hex: #D5D3CC;    /* card / carta */
+  --mustard: #687D31;      /* accento */
+  --giada-hex: #406768;    /* Deep Space Sparkle */
+  --francesco-hex: #6FA9BB;/* Moonstone Blue */
+  --cream: #EFEDE5;        /* testo su fondo scuro */
+
+  --background: var(--phthalo);
+  --foreground: var(--cream);
+
+  --card: var(--paper-hex);
+  --card-foreground: #1c1c1a;
+  --paper: var(--paper-hex);
+  --paper-foreground: #1c1c1a;
+
+  --popover: var(--paper-hex);
+  --popover-foreground: #1c1c1a;
+
+  --primary: var(--mustard);
+  --primary-foreground: #f7f4e7;
+
+  --secondary: #2a4a1c;
+  --secondary-foreground: var(--cream);
+
+  --muted: #24421a;
+  --muted-foreground: #c9c7bc;
+
+  --accent: var(--mustard);
+  --accent-foreground: #f7f4e7;
+
+  --destructive: #b34a3a;
+  --destructive-foreground: #f7f4e7;
+
+  --border: rgba(213, 211, 204, 0.18);
+  --input: rgba(213, 211, 204, 0.14);
+  --ring: var(--mustard);
+
+  --giada: var(--giada-hex);
+  --giada-foreground: #f2f6f6;
+  --francesco: var(--francesco-hex);
+  --francesco-foreground: #0f2830;
+
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.984 0.003 247.858);
-  --sidebar-foreground: oklch(0.129 0.042 264.695);
-  --sidebar-primary: oklch(0.208 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.968 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.929 0.013 255.508);
-  --sidebar-ring: oklch(0.704 0.04 256.788);
+  --sidebar: var(--phthalo);
+  --sidebar-foreground: var(--cream);
+  --sidebar-primary: var(--mustard);
+  --sidebar-primary-foreground: #f7f4e7;
+  --sidebar-accent: #24421a;
+  --sidebar-accent-foreground: var(--cream);
+  --sidebar-border: rgba(213, 211, 204, 0.18);
+  --sidebar-ring: var(--mustard);
 }
 
 .dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.208 0.042 265.755);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
+  /* App is single-theme (quaderno scuro). Dark class = same tokens. */
+  color-scheme: dark;
 }
 
 @layer base {
@@ -140,5 +137,40 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
   }
+  html {
+    color-scheme: dark;
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+  .font-mono, .tabular {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@utility card-paper {
+  background-color: var(--color-paper);
+  color: var(--color-paper-foreground);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.12), 0 8px 24px -12px rgba(0,0,0,0.35);
+}
+
+@utility tag-giada {
+  background-color: var(--color-giada);
+  color: var(--color-giada-foreground);
+}
+@utility tag-francesco {
+  background-color: var(--color-francesco);
+  color: var(--color-francesco-foreground);
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
 }
