@@ -14,7 +14,123 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+        }
+        Relationships: []
+      }
+      lista_spesa: {
+        Row: {
+          checked: boolean
+          created_at: string
+          id: string
+          nome: string
+          quantita: string | null
+          reparto: string
+        }
+        Insert: {
+          checked?: boolean
+          created_at?: string
+          id?: string
+          nome: string
+          quantita?: string | null
+          reparto?: string
+        }
+        Update: {
+          checked?: boolean
+          created_at?: string
+          id?: string
+          nome?: string
+          quantita?: string | null
+          reparto?: string
+        }
+        Relationships: []
+      }
+      ricette: {
+        Row: {
+          carboidrati_g: number | null
+          categoria: string | null
+          congelabile: boolean | null
+          created_at: string
+          da_rifare: boolean | null
+          grassi_g: number | null
+          id: string
+          ingredienti: string[] | null
+          kcal: number | null
+          modifiche: string | null
+          note: string | null
+          proteine_g: number | null
+          scaling_francesco: string | null
+          stagionalita: string[] | null
+          tempo_minuti: number | null
+          tipo: string | null
+          titolo: string
+          updated_at: string
+          varianti: string[] | null
+          voto: number | null
+        }
+        Insert: {
+          carboidrati_g?: number | null
+          categoria?: string | null
+          congelabile?: boolean | null
+          created_at?: string
+          da_rifare?: boolean | null
+          grassi_g?: number | null
+          id: string
+          ingredienti?: string[] | null
+          kcal?: number | null
+          modifiche?: string | null
+          note?: string | null
+          proteine_g?: number | null
+          scaling_francesco?: string | null
+          stagionalita?: string[] | null
+          tempo_minuti?: number | null
+          tipo?: string | null
+          titolo: string
+          updated_at?: string
+          varianti?: string[] | null
+          voto?: number | null
+        }
+        Update: {
+          carboidrati_g?: number | null
+          categoria?: string | null
+          congelabile?: boolean | null
+          created_at?: string
+          da_rifare?: boolean | null
+          grassi_g?: number | null
+          id?: string
+          ingredienti?: string[] | null
+          kcal?: number | null
+          modifiche?: string | null
+          note?: string | null
+          proteine_g?: number | null
+          scaling_francesco?: string | null
+          stagionalita?: string[] | null
+          tempo_minuti?: number | null
+          tipo?: string | null
+          titolo?: string
+          updated_at?: string
+          varianti?: string[] | null
+          voto?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
