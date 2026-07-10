@@ -169,3 +169,8 @@
   background-color: var(--color-francesco);
   color: var(--color-francesco-foreground);
 }
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
