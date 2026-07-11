@@ -62,6 +62,56 @@ export type Database = {
         }
         Relationships: []
       }
+      ricetta_ingredienti: {
+        Row: {
+          created_at: string
+          gruppo: string | null
+          id: string
+          nome_ingrediente: string
+          note: string | null
+          posizione: number
+          quantita: number | null
+          quantita_max: number | null
+          ricetta_id: string
+          unita: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          gruppo?: string | null
+          id?: string
+          nome_ingrediente: string
+          note?: string | null
+          posizione?: number
+          quantita?: number | null
+          quantita_max?: number | null
+          ricetta_id: string
+          unita?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          gruppo?: string | null
+          id?: string
+          nome_ingrediente?: string
+          note?: string | null
+          posizione?: number
+          quantita?: number | null
+          quantita_max?: number | null
+          ricetta_id?: string
+          unita?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ricetta_ingredienti_ricetta_id_fkey"
+            columns: ["ricetta_id"]
+            isOneToOne: false
+            referencedRelation: "ricette"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ricette: {
         Row: {
           carboidrati_g: number | null
