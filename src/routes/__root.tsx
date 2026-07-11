@@ -93,10 +93,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         property: "og:description",
         content:
-          "Pianificazione settimanale dei pasti, ricettario condiviso e lista della spesa.",
+          "Il quaderno di cucina condiviso di Giada e Francesco: pianificazione settimanale dei pasti, ricettario e lista della spesa.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
+      { name: "twitter:title", content: "Il Quaderno · Giada & Francesco" },
+      { name: "twitter:description", content: "Il quaderno di cucina condiviso di Giada e Francesco: pianificazione settimanale dei pasti, ricettario e lista della spesa." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/38b61cd5-dd3b-4b29-a2e7-16f2e49e1bb3/id-preview-1df14dbc--85326314-b241-41d6-a874-d65025809701.lovable.app-1783718171887.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/38b61cd5-dd3b-4b29-a2e7-16f2e49e1bb3/id-preview-1df14dbc--85326314-b241-41d6-a874-d65025809701.lovable.app-1783718171887.png" },
     ],
     links: [
       {
