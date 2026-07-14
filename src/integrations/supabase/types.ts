@@ -62,6 +62,45 @@ export type Database = {
         }
         Relationships: []
       }
+      prezzi_prodotti: {
+        Row: {
+          created_at: string
+          data_rilevazione: string
+          fonte: string
+          foto_scontrino: string | null
+          id: string
+          nome_prodotto: string
+          prezzo: number
+          supermercato: string
+          unita: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_rilevazione?: string
+          fonte?: string
+          foto_scontrino?: string | null
+          id?: string
+          nome_prodotto: string
+          prezzo: number
+          supermercato?: string
+          unita?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_rilevazione?: string
+          fonte?: string
+          foto_scontrino?: string | null
+          id?: string
+          nome_prodotto?: string
+          prezzo?: number
+          supermercato?: string
+          unita?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ricetta_ingredienti: {
         Row: {
           created_at: string
@@ -178,6 +217,39 @@ export type Database = {
           updated_at?: string
           varianti?: string[] | null
           voto?: number | null
+        }
+        Relationships: []
+      }
+      ricette_da_provare: {
+        Row: {
+          created_at: string
+          data_aggiunta: string
+          id: string
+          link_video: string | null
+          note: string
+          stato: string
+          titolo: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_aggiunta?: string
+          id?: string
+          link_video?: string | null
+          note?: string
+          stato?: string
+          titolo: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_aggiunta?: string
+          id?: string
+          link_video?: string | null
+          note?: string
+          stato?: string
+          titolo?: string
+          updated_at?: string
         }
         Relationships: []
       }
