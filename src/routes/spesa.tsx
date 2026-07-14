@@ -17,6 +17,7 @@ import {
   REPARTI,
   type SpesaItem,
 } from "@/lib/spesa.functions";
+import { listPrezzi, type PrezzoProdotto } from "@/lib/prezzi.functions";
 
 export const Route = createFileRoute("/spesa")({
   ssr: false,
@@ -42,6 +43,32 @@ function SpesaPage() {
   const clear = useServerFn(clearChecked);
 
   const { data } = useQuery({ queryKey: ["spesa"], queryFn: () => load() });
+  const loadPrezzi = useServerFn(listPrezzi);
+  const { data: prezzi } = useQuery({
+    queryKey: ["prezzi"],
+    queryFn: () => loadPrezzi(),
+  });
+
+  const prezziIndex = useMemo(() => {
+    const map = new Map<string, PrezzoProdotto>();
+    (prezzi ?? []).forEach((p) => {
+      const key = `${p.nome_prodotto.toLowerCase().trim()}|${p.supermercato}`;
+      const existing = map.get(key);
+      if (!existing || p.data_rilevazione > existing.data_rilevazione) {
+        map.set(key, p);
+      }
+    });
+    return map;
+  }, [prezzi]);
+
+  function prezziPerNome(nome: string): PrezzoProdotto[] {
+    const n = nome.toLowerCase().trim();
+    const out: PrezzoProdotto[] = [];
+    prezziIndex.forEach((p, key) => {
+      if (key.startsWith(`${n}|`)) out.push(p);
+    });
+    return out.sort((a, b) => a.prezzo - b.prezzo);
+  }
 
   const [nome, setNome] = useState("");
   const [reparto, setReparto] = useState<(typeof REPARTI)[number]>("Frutta e verdura");
@@ -148,6 +175,20 @@ function SpesaPage() {
                             {item.quantita}
                           </p>
                         ) : null}
+                        {(() => {
+                          const rif = prezziPerNome(item.nome);
+                          if (rif.length === 0) return null;
+                          return (
+                            <p className="tabular mt-0.5 flex flex-wrap gap-x-2 gap-y-0 text-[11px] text-primary/80">
+                              {rif.slice(0, 3).map((p) => (
+                                <span key={p.id}>
+                                  {p.supermercato} {p.prezzo.toFixed(2)}
+                                  {p.unita.replace("€", "")}
+                                </span>
+                              ))}
+                            </p>
+                          );
+                        })()}
                       </div>
                       <button
                         type="button"
