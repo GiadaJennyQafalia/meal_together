@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Clock, Flame, Snowflake, Star, ChevronRight, Plus, ExternalLink, Trash2, ArrowUpRight, X } from "lucide-react";
@@ -99,6 +99,7 @@ function RicettePage() {
           </ul>
         )}
       </div>
+      <Outlet />
       <BottomNav />
     </div>
   );
