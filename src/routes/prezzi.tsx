@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Plus, Trash2, Camera, X } from "lucide-react";
+import { Plus, Trash2, Camera, X, Pencil } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   addPrezzo,
   deletePrezzo,
+  updatePrezzo,
   listPrezzi,
   SUPERMERCATI,
   UNITA_PREZZO,
@@ -38,10 +39,12 @@ function PrezziPage() {
   const load = useServerFn(listPrezzi);
   const add = useServerFn(addPrezzo);
   const del = useServerFn(deletePrezzo);
+  const upd = useServerFn(updatePrezzo);
 
   const { data } = useQuery({ queryKey: ["prezzi"], queryFn: () => load() });
 
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<PrezzoProdotto | null>(null);
   const [uploading, setUploading] = useState(false);
   const [filter, setFilter] = useState<string>("tutti");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -51,6 +54,24 @@ function PrezziPage() {
   const delM = useMutation({
     mutationFn: (id: string) => del({ data: { id } }),
     onSuccess: invalidate,
+  });
+  const updM = useMutation({
+    mutationFn: (p: { id: string; nome: string; super: string; prezzo: number; unita: string }) =>
+      upd({
+        data: {
+          id: p.id,
+          nome_prodotto: p.nome,
+          supermercato: p.super,
+          prezzo: p.prezzo,
+          unita: p.unita,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Prezzo aggiornato");
+      invalidate();
+      setEditing(null);
+    },
+    onError: (e) => toast.error((e as Error).message ?? "Errore"),
   });
 
   const filtered = useMemo(() => {
@@ -161,7 +182,11 @@ function PrezziPage() {
           <ul className="flex flex-col gap-2.5">
             {filtered.map((p) => (
               <li key={p.id}>
-                <PrezzoCard prezzo={p} onDelete={() => delM.mutate(p.id)} />
+                <PrezzoCard
+                  prezzo={p}
+                  onDelete={() => delM.mutate(p.id)}
+                  onEdit={() => setEditing(p)}
+                />
               </li>
             ))}
           </ul>
@@ -197,6 +222,21 @@ function PrezziPage() {
           }}
         />
       )}
+      {editing && (
+        <AddPrezzoSheet
+          initial={editing}
+          onClose={() => setEditing(null)}
+          onSubmit={async (payload) => {
+            updM.mutate({
+              id: editing.id,
+              nome: payload.nome,
+              super: payload.super,
+              prezzo: payload.prezzo,
+              unita: payload.unita,
+            });
+          }}
+        />
+      )}
 
       <BottomNav />
     </div>
@@ -206,9 +246,11 @@ function PrezziPage() {
 function PrezzoCard({
   prezzo,
   onDelete,
+  onEdit,
 }: {
   prezzo: PrezzoProdotto;
   onDelete: () => void;
+  onEdit: () => void;
 }) {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [loadingImg, setLoadingImg] = useState(false);
@@ -253,6 +295,12 @@ function PrezzoCard({
               <Camera className="h-4 w-4" />
             </button>
           )}
+         <button
+            onClick={onEdit}
+            className="rounded-md p-1 text-paper-foreground/40 hover:text-primary"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
           <button
             onClick={onDelete}
             className="rounded-md p-1 text-paper-foreground/40 hover:text-destructive"
@@ -281,14 +329,18 @@ type AddPayload = {
 function AddPrezzoSheet({
   onClose,
   onSubmit,
+  initial,
 }: {
   onClose: () => void;
   onSubmit: (p: AddPayload) => void;
+  initial?: PrezzoProdotto | null;
 }) {
-  const [nome, setNome] = useState("");
-  const [sup, setSup] = useState<string>("Lidl");
-  const [prezzo, setPrezzo] = useState("");
-  const [unita, setUnita] = useState<string>("€/pezzo");
+  const [nome, setNome] = useState(initial?.nome_prodotto ?? "");
+  const [sup, setSup] = useState<string>(initial?.supermercato ?? "Lidl");
+  const [prezzo, setPrezzo] = useState(
+    initial ? String(initial.prezzo).replace(".", ",") : "",
+  );
+  const [unita, setUnita] = useState<string>(initial?.unita ?? "€/pezzo");
   const [foto, setFoto] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
