@@ -311,11 +311,10 @@ function AddPrezzoSheet({
           />
           <div className="flex gap-2">
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
-              step="0.01"
               value={prezzo}
-              onChange={(e) => setPrezzo(e.target.value)}
+              onChange={(e) => setPrezzo(e.target.value.replace(/[^0-9,.]/g, ""))}
               placeholder="0,00"
               className="tabular flex-1 rounded-md border border-border/60 bg-paper px-3 py-2 text-sm text-paper-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
