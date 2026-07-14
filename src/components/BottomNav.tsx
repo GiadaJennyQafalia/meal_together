@@ -1,10 +1,11 @@
 import { Link } from "@tanstack/react-router";
-import { MessageCircle, BookOpen, ShoppingBasket } from "lucide-react";
+import { MessageCircle, BookOpen, ShoppingBasket, Tag } from "lucide-react";
 
 const items = [
   { to: "/", label: "Chat", icon: MessageCircle },
   { to: "/ricette", label: "Ricette", icon: BookOpen },
   { to: "/spesa", label: "Spesa", icon: ShoppingBasket },
+  { to: "/prezzi", label: "Prezzi", icon: Tag },
 ] as const;
 
 export function BottomNav() {
