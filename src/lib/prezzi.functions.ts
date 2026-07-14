@@ -79,3 +79,31 @@ export const deletePrezzo = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true as const };
   });
+export const updatePrezzo = createServerFn({ method: "POST" })
+  .inputValidator((raw: unknown) =>
+    z
+      .object({
+        id: z.string(),
+        nome_prodotto: z.string().min(1),
+        supermercato: z.string().min(1),
+        prezzo: z.number().nonnegative(),
+        unita: z.string().min(1),
+      })
+      .parse(raw),
+  )
+  .handler(async ({ data }): Promise<PrezzoProdotto> => {
+    const sb = server();
+    const { data: row, error } = await sb
+      .from("prezzi_prodotti")
+      .update({
+        nome_prodotto: data.nome_prodotto.trim(),
+        supermercato: data.supermercato,
+        prezzo: data.prezzo,
+        unita: data.unita,
+      })
+      .eq("id", data.id)
+      .select("*")
+      .single();
+    if (error) throw error;
+    return row as PrezzoProdotto;
+  });
