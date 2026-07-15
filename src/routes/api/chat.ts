@@ -18,9 +18,39 @@ export const Route = createFileRoute("/api/chat")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        // Basic abuse guards for the shared-access chat endpoint (no login in app).
+        // Reject cross-origin callers and cap payload size to prevent runaway AI cost.
+        const origin = request.headers.get("origin") ?? "";
+        const referer = request.headers.get("referer") ?? "";
+        const host = request.headers.get("host") ?? "";
+        const allowedHosts = [host, "meal-together-easy.lovable.app"];
+        const sameOrigin =
+          !origin ||
+          allowedHosts.some(
+            (h) => origin.endsWith(h) || referer.includes(h),
+          );
+        if (!sameOrigin) {
+          return new Response("Forbidden", { status: 403 });
+        }
+
+        const contentLength = Number(request.headers.get("content-length") ?? 0);
+        if (contentLength > 50_000) {
+          return new Response("Payload too large", { status: 413 });
+        }
+
         const { messages } = (await request.json()) as ChatRequestBody;
         if (!Array.isArray(messages)) {
           return new Response("Messages required", { status: 400 });
+        }
+        if (messages.length > 100) {
+          return new Response("Too many messages", { status: 413 });
+        }
+        // Cap individual message text length.
+        for (const m of messages as UIMessage[]) {
+          const text = extractText(m);
+          if (text.length > 4000) {
+            return new Response("Message too long", { status: 413 });
+          }
         }
 
         const key = process.env.LOVABLE_API_KEY;
