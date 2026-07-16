@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      cartelle: {
+        Row: {
+          created_at: string
+          id: string
+          nome: string
+          ordine: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome: string
+          ordine?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome?: string
+          ordine?: number
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           content: string
@@ -154,12 +175,14 @@ export type Database = {
       ricette: {
         Row: {
           carboidrati_g: number | null
+          cartella_id: string | null
           categoria: string | null
           congelabile: boolean | null
           created_at: string
           da_rifare: boolean | null
           grassi_g: number | null
           id: string
+          immagine_url: string | null
           ingredienti: string[] | null
           kcal: number | null
           modifiche: string | null
@@ -167,6 +190,7 @@ export type Database = {
           proteine_g: number | null
           scaling_francesco: string | null
           stagionalita: string[] | null
+          tag: string[]
           tempo_minuti: number | null
           tipo: string | null
           titolo: string
@@ -176,12 +200,14 @@ export type Database = {
         }
         Insert: {
           carboidrati_g?: number | null
+          cartella_id?: string | null
           categoria?: string | null
           congelabile?: boolean | null
           created_at?: string
           da_rifare?: boolean | null
           grassi_g?: number | null
           id: string
+          immagine_url?: string | null
           ingredienti?: string[] | null
           kcal?: number | null
           modifiche?: string | null
@@ -189,6 +215,7 @@ export type Database = {
           proteine_g?: number | null
           scaling_francesco?: string | null
           stagionalita?: string[] | null
+          tag?: string[]
           tempo_minuti?: number | null
           tipo?: string | null
           titolo: string
@@ -198,12 +225,14 @@ export type Database = {
         }
         Update: {
           carboidrati_g?: number | null
+          cartella_id?: string | null
           categoria?: string | null
           congelabile?: boolean | null
           created_at?: string
           da_rifare?: boolean | null
           grassi_g?: number | null
           id?: string
+          immagine_url?: string | null
           ingredienti?: string[] | null
           kcal?: number | null
           modifiche?: string | null
@@ -211,6 +240,7 @@ export type Database = {
           proteine_g?: number | null
           scaling_francesco?: string | null
           stagionalita?: string[] | null
+          tag?: string[]
           tempo_minuti?: number | null
           tipo?: string | null
           titolo?: string
@@ -218,7 +248,15 @@ export type Database = {
           varianti?: string[] | null
           voto?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ricette_cartella_id_fkey"
+            columns: ["cartella_id"]
+            isOneToOne: false
+            referencedRelation: "cartelle"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ricette_da_provare: {
         Row: {

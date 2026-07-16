@@ -21,6 +21,15 @@ export type Ricetta = {
   scaling_francesco: string;
   varianti: string[];
   modifiche: string;
+  cartella_id: string | null;
+  tag: string[];
+  immagine_url: string | null;
+};
+
+export type Cartella = {
+  id: string;
+  nome: string;
+  ordine: number;
 };
 
 function server() {
@@ -76,6 +85,9 @@ const RicettaPatchSchema = z.object({
     scaling_francesco: z.string().optional(),
     varianti: z.array(z.string()).optional(),
     modifiche: z.string().optional(),
+    cartella_id: z.string().nullable().optional(),
+    tag: z.array(z.string()).optional(),
+    immagine_url: z.string().nullable().optional(),
   }),
 });
 
@@ -91,4 +103,74 @@ export const updateRicetta = createServerFn({ method: "POST" })
       .single();
     if (error) throw error;
     return row as Ricetta;
+  });
+
+// --- Cartelle ---
+
+export const listCartelle = createServerFn({ method: "GET" }).handler(
+  async (): Promise<Cartella[]> => {
+    const sb = server();
+    const { data, error } = await sb
+      .from("cartelle")
+      .select("id, nome, ordine")
+      .order("ordine", { ascending: true })
+      .order("nome", { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as Cartella[];
+  },
+);
+
+export const createCartella = createServerFn({ method: "POST" })
+  .inputValidator((raw: unknown) =>
+    z.object({ nome: z.string().min(1).max(60) }).parse(raw),
+  )
+  .handler(async ({ data }): Promise<Cartella> => {
+    const sb = server();
+    const { data: max } = await sb
+      .from("cartelle")
+      .select("ordine")
+      .order("ordine", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const nextOrder = (max?.ordine ?? 0) + 1;
+    const { data: row, error } = await sb
+      .from("cartelle")
+      .insert({ nome: data.nome.trim(), ordine: nextOrder })
+      .select("id, nome, ordine")
+      .single();
+    if (error) throw error;
+    return row as Cartella;
+  });
+
+export const renameCartella = createServerFn({ method: "POST" })
+  .inputValidator((raw: unknown) =>
+    z.object({ id: z.string(), nome: z.string().min(1).max(60) }).parse(raw),
+  )
+  .handler(async ({ data }): Promise<Cartella> => {
+    const sb = server();
+    const { data: row, error } = await sb
+      .from("cartelle")
+      .update({ nome: data.nome.trim() })
+      .eq("id", data.id)
+      .select("id, nome, ordine")
+      .single();
+    if (error) throw error;
+    return row as Cartella;
+  });
+
+export const deleteCartella = createServerFn({ method: "POST" })
+  .inputValidator((raw: unknown) => z.object({ id: z.string() }).parse(raw))
+  .handler(async ({ data }): Promise<{ ok: true }> => {
+    const sb = server();
+    const { count, error: cErr } = await sb
+      .from("ricette")
+      .select("id", { count: "exact", head: true })
+      .eq("cartella_id", data.id);
+    if (cErr) throw cErr;
+    if ((count ?? 0) > 0) {
+      throw new Error("Sposta prima le ricette dentro un'altra cartella.");
+    }
+    const { error } = await sb.from("cartelle").delete().eq("id", data.id);
+    if (error) throw error;
+    return { ok: true };
   });
