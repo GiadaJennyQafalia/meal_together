@@ -1,14 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, Save } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowLeft, Save, Upload, X, ImageIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 import {
   getRicetta,
+  listCartelle,
   updateRicetta,
   type Ricetta,
 } from "@/lib/ricette.functions";
@@ -23,13 +25,21 @@ function RicettaDetail() {
   const qc = useQueryClient();
   const load = useServerFn(getRicetta);
   const save = useServerFn(updateRicetta);
+  const loadC = useServerFn(listCartelle);
 
   const { data, isLoading } = useQuery({
     queryKey: ["ricetta", id],
     queryFn: () => load({ data: { id } }),
   });
+  const { data: cartelle } = useQuery({
+    queryKey: ["cartelle"],
+    queryFn: () => loadC(),
+  });
 
   const [form, setForm] = useState<Ricetta | null>(null);
+  const [tagDraft, setTagDraft] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (data) setForm(data);
   }, [data]);
@@ -57,6 +67,42 @@ function RicettaDetail() {
   const update = <K extends keyof Ricetta>(k: K, v: Ricetta[K]) =>
     setForm((f) => (f ? { ...f, [k]: v } : f));
 
+  const addTag = () => {
+    const t = tagDraft.trim().toLowerCase();
+    if (!t) return;
+    const current = form.tag ?? [];
+    if (current.includes(t)) {
+      setTagDraft("");
+      return;
+    }
+    update("tag", [...current, t]);
+    setTagDraft("");
+  };
+
+  const removeTag = (t: string) =>
+    update("tag", (form.tag ?? []).filter((x) => x !== t));
+
+  const onUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `${id}/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage
+        .from("ricette-immagini")
+        .upload(path, file, { cacheControl: "3600", upsert: false });
+      if (error) throw error;
+      const { data: pub } = supabase.storage
+        .from("ricette-immagini")
+        .getPublicUrl(path);
+      update("immagine_url", pub.publicUrl);
+      toast.success("Immagine caricata — ricordati di salvare");
+    } catch (e) {
+      toast.error((e as Error).message ?? "Errore upload");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div className="min-h-[100dvh] bg-background pb-32 text-foreground">
       <header className="sticky top-0 z-30 border-b border-border/50 bg-background/90 backdrop-blur">
@@ -81,6 +127,114 @@ function RicettaDetail() {
 
       <div className="mx-auto max-w-xl px-4 pt-5">
         <div className="card-paper p-4">
+          <Section title="Foto di copertina">
+            <div className="flex items-center gap-3">
+              <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md border border-black/10 bg-muted/40">
+                {form.immagine_url ? (
+                  <img
+                    src={form.immagine_url}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-paper-foreground/40">
+                    <ImageIcon className="h-5 w-5" />
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void onUpload(f);
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={uploading}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-black/10 bg-white/70 px-2.5 py-1.5 text-xs font-medium text-paper-foreground hover:bg-white disabled:opacity-60"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  {uploading ? "Carico…" : form.immagine_url ? "Cambia" : "Carica"}
+                </button>
+                {form.immagine_url && (
+                  <button
+                    type="button"
+                    onClick={() => update("immagine_url", null)}
+                    className="text-[11px] text-paper-foreground/60 hover:text-destructive"
+                  >
+                    Rimuovi
+                  </button>
+                )}
+              </div>
+            </div>
+          </Section>
+
+          <Section title="Cartella">
+            <select
+              value={form.cartella_id ?? ""}
+              onChange={(e) =>
+                update("cartella_id", e.target.value === "" ? null : e.target.value)
+              }
+              className={inputStyle}
+            >
+              <option value="">— Nessuna cartella —</option>
+              {(cartelle ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome}
+                </option>
+              ))}
+            </select>
+          </Section>
+
+          <Section title="Tag">
+            <div className="flex flex-wrap gap-1.5">
+              {(form.tag ?? []).map((t) => (
+                <span
+                  key={t}
+                  className="inline-flex items-center gap-1 rounded-full bg-muted/50 px-2 py-0.5 text-[11px] text-paper-foreground"
+                >
+                  #{t}
+                  <button
+                    type="button"
+                    onClick={() => removeTag(t)}
+                    className="text-paper-foreground/50 hover:text-destructive"
+                    aria-label={`Rimuovi ${t}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div className="mt-2 flex gap-2">
+              <input
+                value={tagDraft}
+                onChange={(e) => setTagDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === ",") {
+                    e.preventDefault();
+                    addTag();
+                  }
+                }}
+                placeholder="aggiungi tag…"
+                className={inputStyle}
+              />
+              <button
+                type="button"
+                onClick={addTag}
+                className="rounded-md border border-black/10 bg-white/70 px-3 py-1.5 text-xs font-medium text-paper-foreground hover:bg-white"
+              >
+                +
+              </button>
+            </div>
+          </Section>
+
           <Field label="Titolo">
             <input
               value={form.titolo}
