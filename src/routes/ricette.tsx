@@ -544,17 +544,66 @@ function ManageRow({
   cartella,
   count,
   onRename,
+  onCoverChange,
   onDelete,
 }: {
   cartella: Cartella;
   count: number;
   onRename: (nome: string) => void;
+  onCoverChange: (url: string | null) => void;
   onDelete: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(cartella.nome);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const coverSrc = useSignedImage(cartella.immagine_url);
+
+  const onFile = async (file: File) => {
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `_cartelle/${cartella.id}/${Date.now()}.${ext}`;
+      const { data: up, error } = await supabase.storage
+        .from("ricette-immagini")
+        .upload(path, file, { cacheControl: "3600", upsert: false });
+      if (error) throw error;
+      onCoverChange(up?.path ?? path);
+    } catch (e) {
+      toast.error((e as Error).message ?? "Errore upload");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <li className="flex items-center gap-2 rounded-md border border-border/40 bg-paper/60 px-3 py-2">
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        disabled={uploading}
+        title={cartella.immagine_url ? "Cambia copertina" : "Aggiungi copertina"}
+        className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-black/10 bg-muted/40"
+      >
+        {coverSrc ? (
+          <img src={coverSrc} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <span className="flex h-full w-full items-center justify-center text-paper-foreground/40">
+            <Upload className="h-3.5 w-3.5" />
+          </span>
+        )}
+      </button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void onFile(f);
+          e.target.value = "";
+        }}
+      />
       {editing ? (
         <input
           value={val}
@@ -569,6 +618,18 @@ function ManageRow({
           </p>
           <p className="text-[11px] text-paper-foreground/60">
             {count} {count === 1 ? "ricetta" : "ricette"}
+            {cartella.immagine_url && (
+              <>
+                {" · "}
+                <button
+                  type="button"
+                  onClick={() => onCoverChange(null)}
+                  className="underline hover:text-destructive"
+                >
+                  togli copertina
+                </button>
+              </>
+            )}
           </p>
         </div>
       )}
