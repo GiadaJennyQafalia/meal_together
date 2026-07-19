@@ -17,6 +17,7 @@ import {
   FolderPlus,
   Pencil,
   ImageIcon,
+  Upload,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -24,12 +25,15 @@ import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
+import { useSignedImage } from "@/lib/signed-image";
+import { supabase } from "@/integrations/supabase/client";
 import {
   listRicette,
   listCartelle,
   createCartella,
   renameCartella,
   deleteCartella,
+  updateCartella,
   type Ricetta,
   type Cartella,
 } from "@/lib/ricette.functions";
