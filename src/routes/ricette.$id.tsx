@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { useSignedImage } from "@/lib/signed-image";
 import {
   getRicetta,
   listCartelle,
@@ -40,6 +41,7 @@ function RicettaDetail() {
   const [tagDraft, setTagDraft] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const coverSrc = useSignedImage(form?.immagine_url);
   useEffect(() => {
     if (data) setForm(data);
   }, [data]);
@@ -87,14 +89,11 @@ function RicettaDetail() {
     try {
       const ext = file.name.split(".").pop() || "jpg";
       const path = `${id}/${Date.now()}.${ext}`;
-      const { error } = await supabase.storage
+      const { data: up, error } = await supabase.storage
         .from("ricette-immagini")
         .upload(path, file, { cacheControl: "3600", upsert: false });
       if (error) throw error;
-      const { data: pub } = supabase.storage
-        .from("ricette-immagini")
-        .getPublicUrl(path);
-      update("immagine_url", pub.publicUrl);
+      update("immagine_url", up?.path ?? path);
       toast.success("Immagine caricata — ricordati di salvare");
     } catch (e) {
       toast.error((e as Error).message ?? "Errore upload");
@@ -130,9 +129,9 @@ function RicettaDetail() {
           <Section title="Foto di copertina">
             <div className="flex items-center gap-3">
               <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md border border-black/10 bg-muted/40">
-                {form.immagine_url ? (
+                {coverSrc ? (
                   <img
-                    src={form.immagine_url}
+                    src={coverSrc}
                     alt=""
                     className="absolute inset-0 h-full w-full object-cover"
                   />

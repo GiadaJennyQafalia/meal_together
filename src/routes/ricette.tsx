@@ -17,19 +17,23 @@ import {
   FolderPlus,
   Pencil,
   ImageIcon,
+  Upload,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
+import { useSignedImage } from "@/lib/signed-image";
+import { supabase } from "@/integrations/supabase/client";
 import {
   listRicette,
   listCartelle,
   createCartella,
   renameCartella,
   deleteCartella,
+  updateCartella,
   type Ricetta,
   type Cartella,
 } from "@/lib/ricette.functions";
@@ -147,6 +151,8 @@ function RicettePage() {
           <CartelleGrid
             cartelle={folders}
             ricette={rows}
+            tagFilter={tagFilter}
+            setTagFilter={setTagFilter}
             onOpen={(id) => setView({ kind: "cartella", id })}
           />
         )}
@@ -207,42 +213,76 @@ function Tab({
 function CartelleGrid({
   cartelle,
   ricette,
+  tagFilter,
+  setTagFilter,
   onOpen,
 }: {
   cartelle: Cartella[];
   ricette: Ricetta[];
+  tagFilter: string | null;
+  setTagFilter: (t: string | null) => void;
   onOpen: (id: string) => void;
 }) {
-  const orphans = ricette.filter((r) => !r.cartella_id);
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    ricette.forEach((r) => (r.tag ?? []).forEach((t) => set.add(t)));
+    return Array.from(set).sort();
+  }, [ricette]);
+
+  const matches = (r: Ricetta) =>
+    !tagFilter || (r.tag ?? []).includes(tagFilter);
+
+  const foldersToShow = tagFilter
+    ? cartelle.filter((c) =>
+        ricette.some((r) => r.cartella_id === c.id && matches(r)),
+      )
+    : cartelle;
+
+  const orphans = ricette.filter((r) => !r.cartella_id && matches(r));
   return (
     <>
-      <div className="grid grid-cols-2 gap-3">
-        {cartelle.map((c) => {
-          const inside = ricette.filter((r) => r.cartella_id === c.id);
-          const cover = inside.find((r) => r.immagine_url)?.immagine_url ?? null;
-          return (
+      {allTags.length > 0 && (
+        <div className="scrollbar-none -mx-4 mb-3 flex gap-1.5 overflow-x-auto px-4 pb-1">
+          <button
+            onClick={() => setTagFilter(null)}
+            className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] ${
+              !tagFilter
+                ? "border-foreground bg-foreground text-background"
+                : "border-border/60 text-foreground/70"
+            }`}
+          >
+            tutti i tag
+          </button>
+          {allTags.map((t) => (
             <button
-              key={c.id}
-              onClick={() => onOpen(c.id)}
-              className="card-paper group relative aspect-square overflow-hidden text-left"
+              key={t}
+              onClick={() => setTagFilter(t === tagFilter ? null : t)}
+              className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] ${
+                t === tagFilter
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-border/60 text-foreground/70"
+              }`}
             >
-              {cover ? (
-                <img
-                  src={cover}
-                  alt=""
-                  className="absolute inset-0 h-full w-full object-cover opacity-90 transition-transform group-active:scale-[0.98]"
-                />
-              ) : (
-                <div className="absolute inset-0 bg-gradient-to-br from-secondary/40 to-muted/30" />
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 p-3 text-white">
-                <p className="font-serif text-base leading-tight">{c.nome}</p>
-                <p className="mt-0.5 text-[11px] opacity-80">
-                  {inside.length} {inside.length === 1 ? "ricetta" : "ricette"}
-                </p>
-              </div>
+              #{t}
             </button>
+          ))}
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-3">
+        {foldersToShow.map((c) => {
+          const inside = ricette.filter(
+            (r) => r.cartella_id === c.id && matches(r),
+          );
+          const derived = inside.find((r) => r.immagine_url)?.immagine_url ?? null;
+          const cover = c.immagine_url ?? derived;
+          return (
+            <CartellaTile
+              key={c.id}
+              nome={c.nome}
+              cover={cover}
+              count={inside.length}
+              onClick={() => onOpen(c.id)}
+            />
           );
         })}
       </div>
@@ -260,12 +300,51 @@ function CartelleGrid({
           </ul>
         </div>
       )}
-      {cartelle.length === 0 && orphans.length === 0 && (
+      {foldersToShow.length === 0 && orphans.length === 0 && (
         <p className="mt-8 text-center text-sm text-muted-foreground">
-          Nessuna cartella. Creane una con l&apos;ingranaggio in alto.
+          {tagFilter
+            ? `Nessuna ricetta con #${tagFilter}.`
+            : "Nessuna cartella. Creane una con l'ingranaggio in alto."}
         </p>
       )}
     </>
+  );
+}
+
+function CartellaTile({
+  nome,
+  cover,
+  count,
+  onClick,
+}: {
+  nome: string;
+  cover: string | null;
+  count: number;
+  onClick: () => void;
+}) {
+  const src = useSignedImage(cover);
+  return (
+    <button
+      onClick={onClick}
+      className="card-paper group relative aspect-square overflow-hidden text-left"
+    >
+      {src ? (
+        <img
+          src={src}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover opacity-90 transition-transform group-active:scale-[0.98]"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-secondary/40 to-muted/30" />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 p-3 text-white">
+        <p className="font-serif text-base leading-tight">{nome}</p>
+        <p className="mt-0.5 text-[11px] opacity-80">
+          {count} {count === 1 ? "ricetta" : "ricette"}
+        </p>
+      </div>
+    </button>
   );
 }
 
@@ -364,6 +443,7 @@ function ManageCartelleSheet({
   const create = useServerFn(createCartella);
   const rename = useServerFn(renameCartella);
   const del = useServerFn(deleteCartella);
+  const upd = useServerFn(updateCartella);
   const [nome, setNome] = useState("");
 
   const invalidate = () => {
@@ -383,6 +463,16 @@ function ManageCartelleSheet({
   const renameM = useMutation({
     mutationFn: (p: { id: string; nome: string }) => rename({ data: p }),
     onSuccess: invalidate,
+    onError: (e) => toast.error((e as Error).message ?? "Errore"),
+  });
+
+  const coverM = useMutation({
+    mutationFn: (p: { id: string; immagine_url: string | null }) =>
+      upd({ data: { id: p.id, patch: { immagine_url: p.immagine_url } } }),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Copertina aggiornata");
+    },
     onError: (e) => toast.error((e as Error).message ?? "Errore"),
   });
 
@@ -431,6 +521,9 @@ function ManageCartelleSheet({
                 cartella={c}
                 count={count}
                 onRename={(nome) => renameM.mutate({ id: c.id, nome })}
+                onCoverChange={(url) =>
+                  coverM.mutate({ id: c.id, immagine_url: url })
+                }
                 onDelete={() => {
                   if (count > 0) {
                     toast.error("Sposta prima le ricette dentro un'altra cartella.");
@@ -451,17 +544,66 @@ function ManageRow({
   cartella,
   count,
   onRename,
+  onCoverChange,
   onDelete,
 }: {
   cartella: Cartella;
   count: number;
   onRename: (nome: string) => void;
+  onCoverChange: (url: string | null) => void;
   onDelete: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(cartella.nome);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const coverSrc = useSignedImage(cartella.immagine_url);
+
+  const onFile = async (file: File) => {
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `_cartelle/${cartella.id}/${Date.now()}.${ext}`;
+      const { data: up, error } = await supabase.storage
+        .from("ricette-immagini")
+        .upload(path, file, { cacheControl: "3600", upsert: false });
+      if (error) throw error;
+      onCoverChange(up?.path ?? path);
+    } catch (e) {
+      toast.error((e as Error).message ?? "Errore upload");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <li className="flex items-center gap-2 rounded-md border border-border/40 bg-paper/60 px-3 py-2">
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        disabled={uploading}
+        title={cartella.immagine_url ? "Cambia copertina" : "Aggiungi copertina"}
+        className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-black/10 bg-muted/40"
+      >
+        {coverSrc ? (
+          <img src={coverSrc} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <span className="flex h-full w-full items-center justify-center text-paper-foreground/40">
+            <Upload className="h-3.5 w-3.5" />
+          </span>
+        )}
+      </button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void onFile(f);
+          e.target.value = "";
+        }}
+      />
       {editing ? (
         <input
           value={val}
@@ -476,6 +618,18 @@ function ManageRow({
           </p>
           <p className="text-[11px] text-paper-foreground/60">
             {count} {count === 1 ? "ricetta" : "ricette"}
+            {cartella.immagine_url && (
+              <>
+                {" · "}
+                <button
+                  type="button"
+                  onClick={() => onCoverChange(null)}
+                  className="underline hover:text-destructive"
+                >
+                  togli copertina
+                </button>
+              </>
+            )}
           </p>
         </div>
       )}
@@ -736,6 +890,7 @@ function AddDaProvareSheet({
 }
 
 function RicettaCard({ ricetta }: { ricetta: Ricetta }) {
+  const src = useSignedImage(ricetta.immagine_url);
   return (
     <Link
       to="/ricette/$id"
@@ -744,9 +899,9 @@ function RicettaCard({ ricetta }: { ricetta: Ricetta }) {
     >
       <div className="flex items-stretch gap-3">
         <div className="relative h-[86px] w-[86px] shrink-0 bg-muted/40">
-          {ricetta.immagine_url ? (
+          {src ? (
             <img
-              src={ricetta.immagine_url}
+              src={src}
               alt=""
               className="absolute inset-0 h-full w-full object-cover"
             />
