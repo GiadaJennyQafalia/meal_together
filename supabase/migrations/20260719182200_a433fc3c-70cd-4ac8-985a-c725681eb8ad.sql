@@ -1,0 +1,1 @@
+ALTER TABLE public.cartelle ADD COLUMN IF NOT EXISTS immagine_url text;
