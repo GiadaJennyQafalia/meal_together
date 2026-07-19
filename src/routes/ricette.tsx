@@ -151,6 +151,8 @@ function RicettePage() {
           <CartelleGrid
             cartelle={folders}
             ricette={rows}
+            tagFilter={tagFilter}
+            setTagFilter={setTagFilter}
             onOpen={(id) => setView({ kind: "cartella", id })}
           />
         )}
@@ -211,42 +213,76 @@ function Tab({
 function CartelleGrid({
   cartelle,
   ricette,
+  tagFilter,
+  setTagFilter,
   onOpen,
 }: {
   cartelle: Cartella[];
   ricette: Ricetta[];
+  tagFilter: string | null;
+  setTagFilter: (t: string | null) => void;
   onOpen: (id: string) => void;
 }) {
-  const orphans = ricette.filter((r) => !r.cartella_id);
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    ricette.forEach((r) => (r.tag ?? []).forEach((t) => set.add(t)));
+    return Array.from(set).sort();
+  }, [ricette]);
+
+  const matches = (r: Ricetta) =>
+    !tagFilter || (r.tag ?? []).includes(tagFilter);
+
+  const foldersToShow = tagFilter
+    ? cartelle.filter((c) =>
+        ricette.some((r) => r.cartella_id === c.id && matches(r)),
+      )
+    : cartelle;
+
+  const orphans = ricette.filter((r) => !r.cartella_id && matches(r));
   return (
     <>
-      <div className="grid grid-cols-2 gap-3">
-        {cartelle.map((c) => {
-          const inside = ricette.filter((r) => r.cartella_id === c.id);
-          const cover = inside.find((r) => r.immagine_url)?.immagine_url ?? null;
-          return (
+      {allTags.length > 0 && (
+        <div className="scrollbar-none -mx-4 mb-3 flex gap-1.5 overflow-x-auto px-4 pb-1">
+          <button
+            onClick={() => setTagFilter(null)}
+            className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] ${
+              !tagFilter
+                ? "border-foreground bg-foreground text-background"
+                : "border-border/60 text-foreground/70"
+            }`}
+          >
+            tutti i tag
+          </button>
+          {allTags.map((t) => (
             <button
-              key={c.id}
-              onClick={() => onOpen(c.id)}
-              className="card-paper group relative aspect-square overflow-hidden text-left"
+              key={t}
+              onClick={() => setTagFilter(t === tagFilter ? null : t)}
+              className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] ${
+                t === tagFilter
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-border/60 text-foreground/70"
+              }`}
             >
-              {cover ? (
-                <img
-                  src={cover}
-                  alt=""
-                  className="absolute inset-0 h-full w-full object-cover opacity-90 transition-transform group-active:scale-[0.98]"
-                />
-              ) : (
-                <div className="absolute inset-0 bg-gradient-to-br from-secondary/40 to-muted/30" />
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 p-3 text-white">
-                <p className="font-serif text-base leading-tight">{c.nome}</p>
-                <p className="mt-0.5 text-[11px] opacity-80">
-                  {inside.length} {inside.length === 1 ? "ricetta" : "ricette"}
-                </p>
-              </div>
+              #{t}
             </button>
+          ))}
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-3">
+        {foldersToShow.map((c) => {
+          const inside = ricette.filter(
+            (r) => r.cartella_id === c.id && matches(r),
+          );
+          const derived = inside.find((r) => r.immagine_url)?.immagine_url ?? null;
+          const cover = c.immagine_url ?? derived;
+          return (
+            <CartellaTile
+              key={c.id}
+              nome={c.nome}
+              cover={cover}
+              count={inside.length}
+              onClick={() => onOpen(c.id)}
+            />
           );
         })}
       </div>
@@ -264,12 +300,51 @@ function CartelleGrid({
           </ul>
         </div>
       )}
-      {cartelle.length === 0 && orphans.length === 0 && (
+      {foldersToShow.length === 0 && orphans.length === 0 && (
         <p className="mt-8 text-center text-sm text-muted-foreground">
-          Nessuna cartella. Creane una con l&apos;ingranaggio in alto.
+          {tagFilter
+            ? `Nessuna ricetta con #${tagFilter}.`
+            : "Nessuna cartella. Creane una con l'ingranaggio in alto."}
         </p>
       )}
     </>
+  );
+}
+
+function CartellaTile({
+  nome,
+  cover,
+  count,
+  onClick,
+}: {
+  nome: string;
+  cover: string | null;
+  count: number;
+  onClick: () => void;
+}) {
+  const src = useSignedImage(cover);
+  return (
+    <button
+      onClick={onClick}
+      className="card-paper group relative aspect-square overflow-hidden text-left"
+    >
+      {src ? (
+        <img
+          src={src}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover opacity-90 transition-transform group-active:scale-[0.98]"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-secondary/40 to-muted/30" />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 p-3 text-white">
+        <p className="font-serif text-base leading-tight">{nome}</p>
+        <p className="mt-0.5 text-[11px] opacity-80">
+          {count} {count === 1 ? "ricetta" : "ricette"}
+        </p>
+      </div>
+    </button>
   );
 }
 
