@@ -815,6 +815,7 @@ function AddDaProvareSheet({
 }
 
 function RicettaCard({ ricetta }: { ricetta: Ricetta }) {
+  const src = useSignedImage(ricetta.immagine_url);
   return (
     <Link
       to="/ricette/$id"
@@ -823,9 +824,9 @@ function RicettaCard({ ricetta }: { ricetta: Ricetta }) {
     >
       <div className="flex items-stretch gap-3">
         <div className="relative h-[86px] w-[86px] shrink-0 bg-muted/40">
-          {ricetta.immagine_url ? (
+          {src ? (
             <img
-              src={ricetta.immagine_url}
+              src={src}
               alt=""
               className="absolute inset-0 h-full w-full object-cover"
             />
