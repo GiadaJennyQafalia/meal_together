@@ -443,6 +443,7 @@ function ManageCartelleSheet({
   const create = useServerFn(createCartella);
   const rename = useServerFn(renameCartella);
   const del = useServerFn(deleteCartella);
+  const upd = useServerFn(updateCartella);
   const [nome, setNome] = useState("");
 
   const invalidate = () => {
@@ -462,6 +463,16 @@ function ManageCartelleSheet({
   const renameM = useMutation({
     mutationFn: (p: { id: string; nome: string }) => rename({ data: p }),
     onSuccess: invalidate,
+    onError: (e) => toast.error((e as Error).message ?? "Errore"),
+  });
+
+  const coverM = useMutation({
+    mutationFn: (p: { id: string; immagine_url: string | null }) =>
+      upd({ data: { id: p.id, patch: { immagine_url: p.immagine_url } } }),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Copertina aggiornata");
+    },
     onError: (e) => toast.error((e as Error).message ?? "Errore"),
   });
 
@@ -510,6 +521,9 @@ function ManageCartelleSheet({
                 cartella={c}
                 count={count}
                 onRename={(nome) => renameM.mutate({ id: c.id, nome })}
+                onCoverChange={(url) =>
+                  coverM.mutate({ id: c.id, immagine_url: url })
+                }
                 onDelete={() => {
                   if (count > 0) {
                     toast.error("Sposta prima le ricette dentro un'altra cartella.");
