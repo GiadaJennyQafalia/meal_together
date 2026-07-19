@@ -152,7 +152,31 @@ export const renameCartella = createServerFn({ method: "POST" })
       .from("cartelle")
       .update({ nome: data.nome.trim() })
       .eq("id", data.id)
-      .select("id, nome, ordine")
+      .select("id, nome, ordine, immagine_url")
+      .single();
+    if (error) throw error;
+    return row as Cartella;
+  });
+
+export const updateCartella = createServerFn({ method: "POST" })
+  .inputValidator((raw: unknown) =>
+    z
+      .object({
+        id: z.string(),
+        patch: z.object({
+          nome: z.string().min(1).max(60).optional(),
+          immagine_url: z.string().nullable().optional(),
+        }),
+      })
+      .parse(raw),
+  )
+  .handler(async ({ data }): Promise<Cartella> => {
+    const sb = server();
+    const { data: row, error } = await sb
+      .from("cartelle")
+      .update(data.patch)
+      .eq("id", data.id)
+      .select("id, nome, ordine, immagine_url")
       .single();
     if (error) throw error;
     return row as Cartella;
