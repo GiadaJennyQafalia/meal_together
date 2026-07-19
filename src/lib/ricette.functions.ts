@@ -30,6 +30,7 @@ export type Cartella = {
   id: string;
   nome: string;
   ordine: number;
+  immagine_url: string | null;
 };
 
 function server() {
@@ -112,7 +113,7 @@ export const listCartelle = createServerFn({ method: "GET" }).handler(
     const sb = server();
     const { data, error } = await sb
       .from("cartelle")
-      .select("id, nome, ordine")
+      .select("id, nome, ordine, immagine_url")
       .order("ordine", { ascending: true })
       .order("nome", { ascending: true });
     if (error) throw error;
@@ -136,7 +137,7 @@ export const createCartella = createServerFn({ method: "POST" })
     const { data: row, error } = await sb
       .from("cartelle")
       .insert({ nome: data.nome.trim(), ordine: nextOrder })
-      .select("id, nome, ordine")
+      .select("id, nome, ordine, immagine_url")
       .single();
     if (error) throw error;
     return row as Cartella;
