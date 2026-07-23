@@ -34,11 +34,9 @@ export type Cartella = {
 };
 
 function server() {
-  return createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_PUBLISHABLE_KEY!,
-    { auth: { persistSession: false, autoRefreshToken: false } },
-  );
+  return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_PUBLISHABLE_KEY!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 }
 
 export const listRicette = createServerFn({ method: "GET" }).handler(
@@ -106,6 +104,43 @@ export const updateRicetta = createServerFn({ method: "POST" })
     return row as Ricetta;
   });
 
+function slugify(s: string): string {
+  return (
+    s
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "ricetta"
+  );
+}
+
+// Crea una nuova ricetta vuota (solo titolo) con id univoco, pronta per
+// essere aperta e compilata sulla scheda di dettaglio (/ricette/$id).
+export const createRicetta = createServerFn({ method: "POST" })
+  .inputValidator((raw: unknown) => z.object({ titolo: z.string().min(1) }).parse(raw))
+  .handler(async ({ data }): Promise<Ricetta> => {
+    const sb = server();
+    const base = slugify(data.titolo);
+    let id = base;
+    let n = 1;
+
+    while (true) {
+      const { data: existing } = await sb.from("ricette").select("id").eq("id", id).maybeSingle();
+      if (!existing) break;
+      n += 1;
+      id = `${base}-${n}`;
+    }
+    const { data: row, error } = await sb
+      .from("ricette")
+      .insert({ id, titolo: data.titolo.trim() })
+      .select("*")
+      .single();
+    if (error) throw error;
+    return row as Ricetta;
+  });
+
 // --- Cartelle ---
 
 export const listCartelle = createServerFn({ method: "GET" }).handler(
@@ -122,9 +157,7 @@ export const listCartelle = createServerFn({ method: "GET" }).handler(
 );
 
 export const createCartella = createServerFn({ method: "POST" })
-  .inputValidator((raw: unknown) =>
-    z.object({ nome: z.string().min(1).max(60) }).parse(raw),
-  )
+  .inputValidator((raw: unknown) => z.object({ nome: z.string().min(1).max(60) }).parse(raw))
   .handler(async ({ data }): Promise<Cartella> => {
     const sb = server();
     const { data: max } = await sb
