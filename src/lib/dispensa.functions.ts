@@ -156,6 +156,7 @@ export const importScontrinoInDispensa = createServerFn({ method: "POST" })
       throw new Error(signErr?.message ?? "Impossibile generare URL scontrino");
     }
 
+    const { extractProductsFromReceipt } = await import("./receipt-extract.server");
     const prodotti = await extractProductsFromReceipt({ imageUrl: signed.signedUrl });
 
     if (prodotti.length === 0) {
