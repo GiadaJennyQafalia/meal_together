@@ -59,6 +59,45 @@ export type Database = {
         }
         Relationships: []
       }
+      dispensa: {
+        Row: {
+          categoria: string
+          created_at: string
+          fonte: string
+          id: string
+          nome_ingrediente: string
+          peso: number | null
+          quantita: number | null
+          scadenza: string | null
+          unita: string | null
+          updated_at: string
+        }
+        Insert: {
+          categoria?: string
+          created_at?: string
+          fonte?: string
+          id?: string
+          nome_ingrediente: string
+          peso?: number | null
+          quantita?: number | null
+          scadenza?: string | null
+          unita?: string | null
+          updated_at?: string
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          fonte?: string
+          id?: string
+          nome_ingrediente?: string
+          peso?: number | null
+          quantita?: number | null
+          scadenza?: string | null
+          unita?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       lista_spesa: {
         Row: {
           checked: boolean
