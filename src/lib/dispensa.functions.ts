@@ -2,8 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
-import { extractProductsFromReceipt } from "./receipt-extract.server";
-
 export type DispensaItem = {
   id: string;
   nome_ingrediente: string;
