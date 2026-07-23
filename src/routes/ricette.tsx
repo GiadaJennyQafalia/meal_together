@@ -1,4 +1,4 @@
-import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -31,6 +31,7 @@ import {
   listRicette,
   listCartelle,
   createCartella,
+  createRicetta,
   renameCartella,
   deleteCartella,
   updateCartella,
@@ -67,8 +68,11 @@ type View =
   | { kind: "daprovare" };
 
 function RicettePage() {
+  const navigate = useNavigate();
+  const qc = useQueryClient();
   const loadR = useServerFn(listRicette);
   const loadC = useServerFn(listCartelle);
+  const createFn = useServerFn(createRicetta);
   const { data: ricette } = useQuery({
     queryKey: ["ricette"],
     queryFn: () => loadR(),
@@ -81,6 +85,17 @@ function RicettePage() {
   const [view, setView] = useState<View>({ kind: "cartelle" });
   const [manage, setManage] = useState(false);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [newOpen, setNewOpen] = useState(false);
+
+  const createM = useMutation({
+    mutationFn: (titolo: string) => createFn({ data: { titolo } }),
+    onSuccess: (row) => {
+      qc.invalidateQueries({ queryKey: ["ricette"] });
+      setNewOpen(false);
+      navigate({ to: "/ricette/$id", params: { id: row.id } });
+    },
+    onError: (e) => toast.error((e as Error).message ?? "Errore creazione ricetta"),
+  });
 
   const rows = ricette ?? [];
   const folders = cartelle ?? [];
@@ -93,7 +108,7 @@ function RicettePage() {
           view.kind === "cartelle"
             ? `${folders.length} cartelle · ${rows.length} schede`
             : view.kind === "cartella"
-              ? folders.find((f) => f.id === view.id)?.nome ?? "Cartella"
+              ? (folders.find((f) => f.id === view.id)?.nome ?? "Cartella")
               : view.kind === "rifare"
                 ? "Da rifare"
                 : "Da provare"
@@ -111,40 +126,44 @@ function RicettePage() {
           >
             Cartelle
           </Tab>
-          <Tab
-            active={view.kind === "rifare"}
-            onClick={() => setView({ kind: "rifare" })}
-          >
+          <Tab active={view.kind === "rifare"} onClick={() => setView({ kind: "rifare" })}>
             Da rifare
           </Tab>
-          <Tab
-            active={view.kind === "daprovare"}
-            onClick={() => setView({ kind: "daprovare" })}
-          >
+          <Tab active={view.kind === "daprovare"} onClick={() => setView({ kind: "daprovare" })}>
             Da provare
           </Tab>
-          {view.kind === "cartelle" && (
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             <button
-              onClick={() => setManage(true)}
-              className="ml-auto shrink-0 rounded-full border border-border/60 p-2 text-foreground/70 hover:bg-muted/40"
-              aria-label="Gestisci cartelle"
-              title="Gestisci cartelle"
+              onClick={() => setNewOpen(true)}
+              className="rounded-full border border-primary/60 bg-primary/10 p-2 text-primary hover:bg-primary/20"
+              aria-label="Nuova ricetta"
+              title="Nuova ricetta"
             >
-              <Settings className="h-4 w-4" />
+              <Plus className="h-4 w-4" />
             </button>
-          )}
-          {view.kind === "cartella" && (
-            <button
-              onClick={() => {
-                setView({ kind: "cartelle" });
-                setTagFilter(null);
-              }}
-              className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 px-3 py-1.5 text-xs text-foreground/80 hover:bg-muted/40"
-            >
-              <ArrowLeft className="h-3 w-3" />
-              Cartelle
-            </button>
-          )}
+            {view.kind === "cartelle" && (
+              <button
+                onClick={() => setManage(true)}
+                className="rounded-full border border-border/60 p-2 text-foreground/70 hover:bg-muted/40"
+                aria-label="Gestisci cartelle"
+                title="Gestisci cartelle"
+              >
+                <Settings className="h-4 w-4" />
+              </button>
+            )}
+            {view.kind === "cartella" && (
+              <button
+                onClick={() => {
+                  setView({ kind: "cartelle" });
+                  setTagFilter(null);
+                }}
+                className="inline-flex items-center gap-1 rounded-full border border-border/60 px-3 py-1.5 text-xs text-foreground/80 hover:bg-muted/40"
+              >
+                <ArrowLeft className="h-3 w-3" />
+                Cartelle
+              </button>
+            )}
+          </div>
         </div>
 
         {view.kind === "cartelle" && (
@@ -166,23 +185,66 @@ function RicettePage() {
           />
         )}
 
-        {view.kind === "rifare" && (
-          <SimpleList ricette={rows.filter((r) => r.da_rifare)} />
-        )}
+        {view.kind === "rifare" && <SimpleList ricette={rows.filter((r) => r.da_rifare)} />}
 
         {view.kind === "daprovare" && <DaProvareList />}
       </div>
 
       {manage && (
-        <ManageCartelleSheet
-          cartelle={folders}
-          ricette={rows}
-          onClose={() => setManage(false)}
+        <ManageCartelleSheet cartelle={folders} ricette={rows} onClose={() => setManage(false)} />
+      )}
+
+      {newOpen && (
+        <NewRicettaSheet
+          onClose={() => setNewOpen(false)}
+          onSubmit={(titolo) => createM.mutate(titolo)}
+          saving={createM.isPending}
         />
       )}
 
       <Outlet />
       <BottomNav />
+    </div>
+  );
+}
+
+function NewRicettaSheet({
+  onClose,
+  onSubmit,
+  saving,
+}: {
+  onClose: () => void;
+  onSubmit: (titolo: string) => void;
+  saving: boolean;
+}) {
+  const [titolo, setTitolo] = useState("");
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
+      <div className="w-full max-w-xl rounded-t-2xl bg-background p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-serif text-lg">Nuova ricetta</h2>
+          <button onClick={onClose} className="rounded-md p-1 text-foreground/60">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <p className="mb-3 text-[12px] text-muted-foreground">
+          Dai un titolo per creare la scheda: ingredienti, macro, procedimento e il resto si
+          compilano subito dopo, nella pagina della ricetta.
+        </p>
+        <div className="flex flex-col gap-3">
+          <input
+            value={titolo}
+            onChange={(e) => setTitolo(e.target.value)}
+            placeholder="Titolo ricetta"
+            autoFocus
+            className="rounded-md border border-border/60 bg-paper px-3 py-2 text-sm text-paper-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          <Button disabled={saving || !titolo.trim()} onClick={() => onSubmit(titolo.trim())}>
+            {saving ? "Creo…" : "Crea e apri scheda"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -229,13 +291,10 @@ function CartelleGrid({
     return Array.from(set).sort();
   }, [ricette]);
 
-  const matches = (r: Ricetta) =>
-    !tagFilter || (r.tag ?? []).includes(tagFilter);
+  const matches = (r: Ricetta) => !tagFilter || (r.tag ?? []).includes(tagFilter);
 
   const foldersToShow = tagFilter
-    ? cartelle.filter((c) =>
-        ricette.some((r) => r.cartella_id === c.id && matches(r)),
-      )
+    ? cartelle.filter((c) => ricette.some((r) => r.cartella_id === c.id && matches(r)))
     : cartelle;
 
   const orphans = ricette.filter((r) => !r.cartella_id && matches(r));
@@ -270,9 +329,7 @@ function CartelleGrid({
       )}
       <div className="grid grid-cols-2 gap-3">
         {foldersToShow.map((c) => {
-          const inside = ricette.filter(
-            (r) => r.cartella_id === c.id && matches(r),
-          );
+          const inside = ricette.filter((r) => r.cartella_id === c.id && matches(r));
           const derived = inside.find((r) => r.immagine_url)?.immagine_url ?? null;
           const cover = c.immagine_url ?? derived;
           return (
@@ -365,16 +422,10 @@ function CartellaDetail({
     return Array.from(set).sort();
   }, [ricette]);
 
-  const filtered = tagFilter
-    ? ricette.filter((r) => (r.tag ?? []).includes(tagFilter))
-    : ricette;
+  const filtered = tagFilter ? ricette.filter((r) => (r.tag ?? []).includes(tagFilter)) : ricette;
 
   if (!cartella) {
-    return (
-      <p className="mt-8 text-center text-sm text-muted-foreground">
-        Cartella non trovata.
-      </p>
-    );
+    return <p className="mt-8 text-center text-sm text-muted-foreground">Cartella non trovata.</p>;
   }
 
   return (
@@ -413,11 +464,7 @@ function CartellaDetail({
 
 function SimpleList({ ricette }: { ricette: Ricetta[] }) {
   if (ricette.length === 0) {
-    return (
-      <p className="mt-8 text-center text-sm text-muted-foreground">
-        Nessuna ricetta qui.
-      </p>
-    );
+    return <p className="mt-8 text-center text-sm text-muted-foreground">Nessuna ricetta qui.</p>;
   }
   return (
     <ul className="flex flex-col gap-3">
@@ -521,9 +568,7 @@ function ManageCartelleSheet({
                 cartella={c}
                 count={count}
                 onRename={(nome) => renameM.mutate({ id: c.id, nome })}
-                onCoverChange={(url) =>
-                  coverM.mutate({ id: c.id, immagine_url: url })
-                }
+                onCoverChange={(url) => coverM.mutate({ id: c.id, immagine_url: url })}
                 onDelete={() => {
                   if (count > 0) {
                     toast.error("Sposta prima le ricette dentro un'altra cartella.");
@@ -613,9 +658,7 @@ function ManageRow({
         />
       ) : (
         <div className="min-w-0 flex-1">
-          <p className="truncate font-serif text-sm text-paper-foreground">
-            {cartella.nome}
-          </p>
+          <p className="truncate font-serif text-sm text-paper-foreground">{cartella.nome}</p>
           <p className="text-[11px] text-paper-foreground/60">
             {count} {count === 1 ? "ricetta" : "ricette"}
             {cartella.immagine_url && (
@@ -684,6 +727,7 @@ function ManageRow({
 }
 
 function DaProvareList() {
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const load = useServerFn(listDaProvare);
   const add = useServerFn(addDaProvare);
@@ -707,9 +751,10 @@ function DaProvareList() {
   });
   const promM = useMutation({
     mutationFn: (id: string) => prom({ data: { id } }),
-    onSuccess: () => {
-      toast.success("Aggiunta al ricettario");
+    onSuccess: ({ ricetta_id }) => {
+      toast.success("Aggiunta al ricettario — completa la scheda");
       invalidate();
+      navigate({ to: "/ricette/$id", params: { id: ricetta_id } });
     },
     onError: (e) => toast.error((e as Error).message ?? "Errore"),
   });
@@ -786,9 +831,7 @@ function DaProvareCard({
               </span>
             )}
           </div>
-          <p className="mt-1 font-serif text-base text-paper-foreground">
-            {item.titolo}
-          </p>
+          <p className="mt-1 font-serif text-base text-paper-foreground">{item.titolo}</p>
           {item.link_video && (
             <a
               href={item.link_video}
@@ -900,11 +943,7 @@ function RicettaCard({ ricetta }: { ricetta: Ricetta }) {
       <div className="flex items-stretch gap-3">
         <div className="relative h-[86px] w-[86px] shrink-0 bg-muted/40">
           {src ? (
-            <img
-              src={src}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-            />
+            <img src={src} alt="" className="absolute inset-0 h-full w-full object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-paper-foreground/30">
               <ImageIcon className="h-5 w-5" />
