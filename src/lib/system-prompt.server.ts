@@ -67,6 +67,14 @@ Usa prioritariamente le ricette con \`da_rifare: true\` fornite di seguito (atte
 {RICETTARIO_JSON}
 \`\`\`
 
+## Dispensa attuale
+
+Cosa c'è ora in casa (frigo/freezer/dispensa) — usalo come base per gli svuota-dispensa senza doverlo chiedere ogni volta. Segnala sempre gli articoli in scadenza entro pochi giorni.
+
+\`\`\`
+{DISPENSA_JSON}
+\`\`\`
+
 ## Offerte caricate questa settimana
 
 \`\`\`
@@ -83,10 +91,15 @@ Usa prioritariamente le ricette con \`da_rifare: true\` fornite di seguito (atte
 
 Rispondi sempre in italiano, tono colloquiale e diretto. Markdown minimo in chat, va bene più strutturato solo nel piano finale.`;
 
-export function buildSystemPrompt(ricette: unknown[]): string {
+export function buildSystemPrompt(ricette: unknown[], dispensa: unknown[] = []): string {
   return SYSTEM_PROMPT_TEMPLATE.replace(
     "{RICETTARIO_JSON}",
     JSON.stringify(ricette, null, 2),
+  ).replace(
+    "{DISPENSA_JSON}",
+    dispensa.length
+      ? JSON.stringify(dispensa, null, 2)
+      : "Dispensa vuota (nessun articolo registrato).",
   ).replace(
     "{OFFERTE}",
     "Nessuna offerta caricata questa settimana (funzionalità offerte non ancora attiva).",

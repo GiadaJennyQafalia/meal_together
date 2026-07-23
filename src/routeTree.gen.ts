@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SpesaRouteImport } from './routes/spesa'
 import { Route as RicetteRouteImport } from './routes/ricette'
 import { Route as PrezziRouteImport } from './routes/prezzi'
+import { Route as DispensaRouteImport } from './routes/dispensa'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RicetteIdRouteImport } from './routes/ricette.$id'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
@@ -29,6 +30,11 @@ const RicetteRoute = RicetteRouteImport.update({
 const PrezziRoute = PrezziRouteImport.update({
   id: '/prezzi',
   path: '/prezzi',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DispensaRoute = DispensaRouteImport.update({
+  id: '/dispensa',
+  path: '/dispensa',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -49,6 +55,7 @@ const ApiChatRoute = ApiChatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/dispensa': typeof DispensaRoute
   '/prezzi': typeof PrezziRoute
   '/ricette': typeof RicetteRouteWithChildren
   '/spesa': typeof SpesaRoute
@@ -57,6 +64,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/dispensa': typeof DispensaRoute
   '/prezzi': typeof PrezziRoute
   '/ricette': typeof RicetteRouteWithChildren
   '/spesa': typeof SpesaRoute
@@ -66,6 +74,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/dispensa': typeof DispensaRoute
   '/prezzi': typeof PrezziRoute
   '/ricette': typeof RicetteRouteWithChildren
   '/spesa': typeof SpesaRoute
@@ -76,16 +85,25 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/dispensa'
     | '/prezzi'
     | '/ricette'
     | '/spesa'
     | '/api/chat'
     | '/ricette/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/prezzi' | '/ricette' | '/spesa' | '/api/chat' | '/ricette/$id'
+  to:
+    | '/'
+    | '/dispensa'
+    | '/prezzi'
+    | '/ricette'
+    | '/spesa'
+    | '/api/chat'
+    | '/ricette/$id'
   id:
     | '__root__'
     | '/'
+    | '/dispensa'
     | '/prezzi'
     | '/ricette'
     | '/spesa'
@@ -95,6 +113,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DispensaRoute: typeof DispensaRoute
   PrezziRoute: typeof PrezziRoute
   RicetteRoute: typeof RicetteRouteWithChildren
   SpesaRoute: typeof SpesaRoute
@@ -122,6 +141,13 @@ declare module '@tanstack/react-router' {
       path: '/prezzi'
       fullPath: '/prezzi'
       preLoaderRoute: typeof PrezziRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dispensa': {
+      id: '/dispensa'
+      path: '/dispensa'
+      fullPath: '/dispensa'
+      preLoaderRoute: typeof DispensaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -161,6 +187,7 @@ const RicetteRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DispensaRoute: DispensaRoute,
   PrezziRoute: PrezziRoute,
   RicetteRoute: RicetteRouteWithChildren,
   SpesaRoute: SpesaRoute,

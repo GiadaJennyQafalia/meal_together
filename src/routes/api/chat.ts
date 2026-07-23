@@ -62,8 +62,14 @@ export const Route = createFileRoute("/api/chat")({
           { auth: { persistSession: false, autoRefreshToken: false } },
         );
 
-        const { data: ricette } = await supabase.from("ricette").select("*");
-        const system = buildSystemPrompt(ricette ?? []);
+        const [{ data: ricette }, { data: dispensa }] = await Promise.all([
+          supabase.from("ricette").select("*"),
+          supabase
+            .from("dispensa")
+            .select("nome_ingrediente, quantita, unita, peso, categoria, scadenza")
+            .order("scadenza", { ascending: true, nullsFirst: false }),
+        ]);
+        const system = buildSystemPrompt(ricette ?? [], dispensa ?? []);
 
         const uiMessages = messages as UIMessage[];
         // Persist the last user message (idempotent-ish: only latest one).
