@@ -1,9 +1,10 @@
 import { Link } from "@tanstack/react-router";
-import { MessageCircle, BookOpen, ShoppingBasket, Tag } from "lucide-react";
+import { MessageCircle, BookOpen, ShoppingBasket, Tag, Package } from "lucide-react";
 
 const items = [
   { to: "/", label: "Chat", icon: MessageCircle },
   { to: "/ricette", label: "Ricette", icon: BookOpen },
+  { to: "/dispensa", label: "Dispensa", icon: Package },
   { to: "/spesa", label: "Spesa", icon: ShoppingBasket },
   { to: "/prezzi", label: "Prezzi", icon: Tag },
 ] as const;
