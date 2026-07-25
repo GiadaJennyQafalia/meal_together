@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
+import { useServerFn } from "@tanstack/react-start";
 import ReactMarkdown from "react-markdown";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, Eraser } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import type { StoredMessage } from "@/lib/chat.functions";
+import { clearChatHistory, type StoredMessage } from "@/lib/chat.functions";
 
 function toUiMessages(stored: StoredMessage[]): UIMessage[] {
   return stored.map((m) => ({
@@ -20,12 +21,34 @@ export function ChatWindow({ initial }: { initial: StoredMessage[] }) {
   const [input, setInput] = useState("");
   const scrollerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const clearFn = useServerFn(clearChatHistory);
+  const [clearing, setClearing] = useState(false);
 
-  const { messages, sendMessage, status, error } = useChat({
+  const { messages, sendMessage, setMessages, status, error } = useChat({
     messages: toUiMessages(initial),
     transport: new DefaultChatTransport({ api: "/api/chat" }),
     onError: (err) => toast.error(err.message ?? "Errore nella chat"),
   });
+
+  async function handleNewChat() {
+    if (
+      !window.confirm(
+        "Cancellare tutta la cronologia della chat? È condivisa tra Giada e Francesco e non si può annullare.",
+      )
+    ) {
+      return;
+    }
+    setClearing(true);
+    try {
+      await clearFn();
+      setMessages([]);
+      toast.success("Chat svuotata");
+    } catch (err) {
+      toast.error((err as Error).message ?? "Errore nello svuotare la chat");
+    } finally {
+      setClearing(false);
+    }
+  }
 
   useEffect(() => {
     scrollerRef.current?.scrollTo({
@@ -53,16 +76,23 @@ export function ChatWindow({ initial }: { initial: StoredMessage[] }) {
 
   return (
     <div className="flex h-full flex-col">
-      <div
-        ref={scrollerRef}
-        className="flex-1 overflow-y-auto px-4 pt-4 pb-6"
-      >
+      {!empty && (
+        <div className="flex justify-end border-b border-border/40 px-4 py-2">
+          <button
+            onClick={handleNewChat}
+            disabled={clearing}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-3 py-1 text-xs text-foreground/70 hover:bg-muted/40 disabled:opacity-50"
+          >
+            <Eraser className="h-3 w-3" />
+            Nuova chat
+          </button>
+        </div>
+      )}
+      <div ref={scrollerRef} className="flex-1 overflow-y-auto px-4 pt-4 pb-6">
         {empty ? <EmptyState /> : null}
         <ul className="mx-auto flex max-w-xl flex-col gap-4">
           {messages.map((m) => {
-            const text = m.parts
-              .map((p) => (p.type === "text" ? p.text : ""))
-              .join("");
+            const text = m.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
             return <MessageBubble key={m.id} role={m.role} text={text} />;
           })}
           {status === "submitted" ? (
@@ -104,11 +134,7 @@ export function ChatWindow({ initial }: { initial: StoredMessage[] }) {
             disabled={busy || !input.trim()}
             className="h-11 w-11 shrink-0 rounded-full"
           >
-            {busy ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </div>
       </form>
@@ -138,14 +164,12 @@ function MessageBubble({ role, text }: { role: string; text: string }) {
 function EmptyState() {
   return (
     <div className="mx-auto max-w-xl pb-6 text-center">
-      <p className="font-serif text-2xl leading-tight text-foreground">
-        Il Quaderno
-      </p>
+      <p className="font-serif text-2xl leading-tight text-foreground">Il Quaderno</p>
       <p className="mt-2 text-sm text-muted-foreground">
         L'assistente di pianificazione settimanale di Giada &amp; Francesco.
         <br />
-        Comincia chiedendo <em>"pianifichiamo la settimana"</em> o
-        raccontando cosa c'è da consumare.
+        Comincia chiedendo <em>"pianifichiamo la settimana"</em> o raccontando cosa c'è da
+        consumare.
       </p>
     </div>
   );
