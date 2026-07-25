@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Plus, Trash2, Camera, X, Pencil, AlertTriangle } from "lucide-react";
+import { Plus, Minus, Trash2, Camera, X, Pencil, AlertTriangle, Receipt } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -66,6 +66,12 @@ function DispensaPage() {
     onSuccess: invalidate,
   });
 
+  const stepM = useMutation({
+    mutationFn: (p: { id: string; quantita: number }) =>
+      upd({ data: { id: p.id, patch: { quantita: p.quantita } } }),
+    onSuccess: invalidate,
+  });
+
   const filtered = useMemo(() => {
     const rows = data ?? [];
     if (filter === "tutti") return rows;
@@ -93,9 +99,7 @@ function DispensaPage() {
       if (totale === 0) {
         toast.warning("Nessun prodotto riconosciuto dallo scontrino");
       } else {
-        toast.success(
-          `${res.aggiunti} nuovi · ${res.aggiornati} aggiornati dallo scontrino`,
-        );
+        toast.success(`${res.aggiunti} nuovi · ${res.aggiornati} aggiornati dallo scontrino`);
       }
       invalidate();
     } catch (e) {
@@ -140,7 +144,7 @@ function DispensaPage() {
         type="file"
         accept="image/*"
         capture="environment"
-        className="hidden"
+        className="absolute h-px w-px overflow-hidden opacity-0"
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (f) onScontrino(f);
@@ -179,6 +183,10 @@ function DispensaPage() {
                   item={r}
                   onDelete={() => delM.mutate(r.id)}
                   onEdit={() => setEditing(r)}
+                  onStep={(delta) =>
+                    stepM.mutate({ id: r.id, quantita: Math.max(0, (r.quantita ?? 0) + delta) })
+                  }
+                  stepping={stepM.isPending}
                 />
               </li>
             ))}
@@ -227,21 +235,27 @@ function DispensaCard({
   item,
   onDelete,
   onEdit,
+  onStep,
+  stepping,
 }: {
   item: DispensaItem;
   onDelete: () => void;
   onEdit: () => void;
+  onStep: (delta: 1 | -1) => void;
+  stepping: boolean;
 }) {
   const g = giorniAScadenza(item.scadenza);
   const inScadenza = g !== null && g <= 3;
   const scaduto = g !== null && g < 0;
 
-  const qtyLabel = [
-    item.quantita != null ? `${item.quantita}${item.unita ? " " + item.unita : ""}` : null,
-    item.peso != null ? `${item.peso}g` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  // Quantità = numero confezioni, Peso = peso di UNA confezione.
+  const pesoLabel =
+    item.peso != null
+      ? item.quantita != null
+        ? `× ${item.peso}g/conf. · ${item.quantita * item.peso}g tot.`
+        : `${item.peso}g/conf.`
+      : null;
+  const unitaLabel = item.unita ? ` ${item.unita}` : "";
 
   return (
     <div className="card-paper px-4 py-3">
@@ -254,7 +268,7 @@ function DispensaCard({
             <span className="rounded-sm bg-secondary/80 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-secondary-foreground">
               {item.categoria}
             </span>
-            {qtyLabel && <span className="tabular font-medium">{qtyLabel}</span>}
+            {pesoLabel && <span className="tabular">{pesoLabel}</span>}
             {item.scadenza && (
               <span
                 className={`tabular inline-flex items-center gap-1 ${
@@ -275,7 +289,40 @@ function DispensaCard({
                       : `Scade tra ${g}g`}
               </span>
             )}
-            {item.fonte === "scontrino" && <span title="Da scontrino">📷</span>}
+            {item.fonte === "scontrino" && (
+              <span
+                title="Aggiunto leggendo uno scontrino"
+                className="inline-flex items-center gap-1 text-[11px] text-paper-foreground/50"
+              >
+                <Receipt className="h-3 w-3" />
+                da scontrino
+              </span>
+            )}
+          </div>
+
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onStep(-1)}
+              disabled={stepping || (item.quantita ?? 0) <= 0}
+              aria-label="Togli una confezione"
+              className="flex h-6 w-6 items-center justify-center rounded-full border border-border/60 text-paper-foreground/70 hover:bg-muted/40 disabled:opacity-30"
+            >
+              <Minus className="h-3 w-3" />
+            </button>
+            <span className="tabular min-w-[2ch] text-center text-sm font-medium text-paper-foreground">
+              {item.quantita ?? 0}
+              {unitaLabel}
+            </span>
+            <button
+              type="button"
+              onClick={() => onStep(1)}
+              disabled={stepping}
+              aria-label="Aggiungi una confezione"
+              className="flex h-6 w-6 items-center justify-center rounded-full border border-border/60 text-paper-foreground/70 hover:bg-muted/40 disabled:opacity-30"
+            >
+              <Plus className="h-3 w-3" />
+            </button>
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -353,27 +400,33 @@ function DispensaSheet({
             placeholder="Ingrediente (es. yogurt greco)"
             className="rounded-md border border-border/60 bg-paper px-3 py-2 text-sm text-paper-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           />
-          <div className="flex gap-2">
-            <input
-              inputMode="decimal"
-              value={qty}
-              onChange={(e) => setQty(e.target.value.replace(/[^0-9,.]/g, ""))}
-              placeholder="Quantità"
-              className="tabular flex-1 rounded-md border border-border/60 bg-paper px-3 py-2 text-sm"
-            />
-            <input
-              value={unita}
-              onChange={(e) => setUnita(e.target.value)}
-              placeholder="Unità"
-              className="w-24 rounded-md border border-border/60 bg-paper px-3 py-2 text-sm"
-            />
-            <input
-              inputMode="decimal"
-              value={peso}
-              onChange={(e) => setPeso(e.target.value.replace(/[^0-9,.]/g, ""))}
-              placeholder="Peso (g)"
-              className="tabular w-24 rounded-md border border-border/60 bg-paper px-3 py-2 text-sm"
-            />
+          <div>
+            <div className="flex gap-2">
+              <input
+                inputMode="decimal"
+                value={qty}
+                onChange={(e) => setQty(e.target.value.replace(/[^0-9,.]/g, ""))}
+                placeholder="Confezioni"
+                className="tabular flex-1 rounded-md border border-border/60 bg-paper px-3 py-2 text-sm text-paper-foreground"
+              />
+              <input
+                value={unita}
+                onChange={(e) => setUnita(e.target.value)}
+                placeholder="Unità"
+                className="w-24 rounded-md border border-border/60 bg-paper px-3 py-2 text-sm text-paper-foreground"
+              />
+              <input
+                inputMode="decimal"
+                value={peso}
+                onChange={(e) => setPeso(e.target.value.replace(/[^0-9,.]/g, ""))}
+                placeholder="Peso/conf. (g)"
+                className="tabular w-28 rounded-md border border-border/60 bg-paper px-3 py-2 text-sm text-paper-foreground"
+              />
+            </div>
+            <p className="mt-1 text-[11px] text-foreground/50">
+              Confezioni = quante ne hai (es. 2). Peso/conf. = quanto pesa
+              <strong> una sola</strong> confezione (es. 400g) — non il totale.
+            </p>
           </div>
           <div>
             <p className="mb-1.5 text-[11px] uppercase tracking-wider text-foreground/60">
@@ -407,7 +460,7 @@ function DispensaSheet({
                 setScadenza(e.target.value);
                 setScadenzaTocca(true);
               }}
-              className="rounded-md border border-border/60 bg-paper px-3 py-2 text-sm"
+              className="rounded-md border border-border/60 bg-paper px-3 py-2 text-sm text-paper-foreground"
             />
           </div>
           <Button
