@@ -25,10 +25,7 @@ export const Route = createFileRoute("/api/chat")({
         const host = request.headers.get("host") ?? "";
         const allowedHosts = [host, "meal-together-easy.lovable.app"];
         const sameOrigin =
-          !origin ||
-          allowedHosts.some(
-            (h) => origin.endsWith(h) || referer.includes(h),
-          );
+          !origin || allowedHosts.some((h) => origin.endsWith(h) || referer.includes(h));
         if (!sameOrigin) {
           return new Response("Forbidden", { status: 403 });
         }
@@ -45,12 +42,13 @@ export const Route = createFileRoute("/api/chat")({
         if (messages.length > 100) {
           return new Response("Too many messages", { status: 413 });
         }
-        // Cap individual message text length.
-        for (const m of messages as UIMessage[]) {
-          const text = extractText(m);
-          if (text.length > 4000) {
-            return new Response("Message too long", { status: 413 });
-          }
+        // Cap only the newest message's length (the one just typed by the
+        // user). Checking the whole history would permanently block a
+        // conversation once any past AI reply exceeds 4000 chars (e.g. a
+        // full weekly meal plan), which is expected to be long.
+        const lastMessage = messages[messages.length - 1] as UIMessage | undefined;
+        if (lastMessage && extractText(lastMessage).length > 4000) {
+          return new Response("Message too long", { status: 413 });
         }
 
         const key = process.env.LOVABLE_API_KEY;
@@ -93,9 +91,7 @@ export const Route = createFileRoute("/api/chat")({
           onFinish: async ({ responseMessage }) => {
             const content = extractText(responseMessage);
             if (content) {
-              await supabase
-                .from("chat_messages")
-                .insert({ role: "assistant", content });
+              await supabase.from("chat_messages").insert({ role: "assistant", content });
             }
           },
         });
