@@ -26,8 +26,7 @@ export const Route = createFileRoute("/prezzi")({
       { title: "Prezzi · Il Quaderno" },
       {
         name: "description",
-        content:
-          "Tracciamento prezzi per supermercato con foto scontrini condivise.",
+        content: "Tracciamento prezzi per supermercato con foto scontrini condivise.",
       },
     ],
   }),
@@ -149,7 +148,7 @@ function PrezziPage() {
         type="file"
         accept="image/*"
         capture="environment"
-        className="hidden"
+        className="absolute h-px w-px overflow-hidden opacity-0"
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (f) onScontrinoOnly(f);
@@ -175,9 +174,7 @@ function PrezziPage() {
         </div>
 
         {filtered.length === 0 ? (
-          <p className="mt-10 text-center text-sm text-muted-foreground">
-            Nessun prezzo salvato.
-          </p>
+          <p className="mt-10 text-center text-sm text-muted-foreground">Nessun prezzo salvato.</p>
         ) : (
           <ul className="flex flex-col gap-2.5">
             {filtered.map((p) => (
@@ -295,7 +292,7 @@ function PrezzoCard({
               <Camera className="h-4 w-4" />
             </button>
           )}
-         <button
+          <button
             onClick={onEdit}
             className="rounded-md p-1 text-paper-foreground/40 hover:text-primary"
           >
@@ -337,9 +334,7 @@ function AddPrezzoSheet({
 }) {
   const [nome, setNome] = useState(initial?.nome_prodotto ?? "");
   const [sup, setSup] = useState<string>(initial?.supermercato ?? "Lidl");
-  const [prezzo, setPrezzo] = useState(
-    initial ? String(initial.prezzo).replace(".", ",") : "",
-  );
+  const [prezzo, setPrezzo] = useState(initial ? String(initial.prezzo).replace(".", ",") : "");
   const [unita, setUnita] = useState<string>(initial?.unita ?? "€/pezzo");
   const [foto, setFoto] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
