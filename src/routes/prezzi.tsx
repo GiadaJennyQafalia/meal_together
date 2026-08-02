@@ -1,9 +1,27 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Plus, Trash2, Camera, X, Pencil } from "lucide-react";
+import { Plus, Trash2, Camera, X, Pencil, Loader2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
+  format,
+  startOfWeek,
+  startOfMonth,
+  startOfYear,
+  parseISO,
+} from "date-fns";
+import { it } from "date-fns/locale";
 
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
@@ -14,9 +32,13 @@ import {
   deletePrezzo,
   updatePrezzo,
   listPrezzi,
+  listSpese,
+  analizzaScontrinoPrezzi,
+  importScontrinoInPrezzi,
   SUPERMERCATI,
   UNITA_PREZZO,
   type PrezzoProdotto,
+  type SpesaScontrino,
 } from "@/lib/prezzi.functions";
 
 export const Route = createFileRoute("/prezzi")({
@@ -39,16 +61,31 @@ function PrezziPage() {
   const add = useServerFn(addPrezzo);
   const del = useServerFn(deletePrezzo);
   const upd = useServerFn(updatePrezzo);
+  const analizza = useServerFn(analizzaScontrinoPrezzi);
+  const importa = useServerFn(importScontrinoInPrezzi);
+  const loadSpese = useServerFn(listSpese);
 
   const { data } = useQuery({ queryKey: ["prezzi"], queryFn: () => load() });
+  const { data: spese } = useQuery({ queryKey: ["spese"], queryFn: () => loadSpese() });
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PrezzoProdotto | null>(null);
   const [uploading, setUploading] = useState(false);
   const [filter, setFilter] = useState<string>("tutti");
+  const [tab, setTab] = useState<"prezzi" | "dashboard">("prezzi");
+  const [analisi, setAnalisi] = useState<{
+    path: string;
+    supermercato: string;
+    data: string | null;
+    totale: number | null;
+    prodotti: { nome: string; prezzo: number; unita: string | null }[];
+  } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["prezzi"] });
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["prezzi"] });
+    qc.invalidateQueries({ queryKey: ["spese"] });
+  };
 
   const delM = useMutation({
     mutationFn: (id: string) => del({ data: { id } }),
@@ -97,32 +134,45 @@ function PrezziPage() {
     }
   }
 
-  async function onScontrinoOnly(file: File) {
+  async function onScontrino(file: File) {
     const path = await uploadScontrino(file);
     if (!path) return;
+    setUploading(true);
     try {
-      await add({
-        data: {
-          nome_prodotto: `Scontrino ${new Date().toLocaleDateString("it-IT")}`,
-          supermercato: "altro",
-          prezzo: 0,
-          unita: "€/pezzo",
-          fonte: "scontrino",
-          foto_scontrino: path,
-        },
-      });
-      toast.success("Scontrino salvato");
-      invalidate();
+      const res = await analizza({ data: { scontrino_path: path } });
+      if (res.prodotti.length === 0) {
+        toast.error("Nessun prodotto riconosciuto nello scontrino");
+        return;
+      }
+      setAnalisi({ path, ...res });
     } catch (e) {
-      toast.error((e as Error).message ?? "Errore");
+      toast.error((e as Error).message ?? "Analisi scontrino fallita");
+    } finally {
+      setUploading(false);
     }
   }
+
+  const importM = useMutation({
+    mutationFn: (payload: {
+      scontrino_path: string;
+      supermercato: string;
+      data: string | null;
+      totale: number | null;
+      prodotti: { nome: string; prezzo: number; unita: string | null }[];
+    }) => importa({ data: payload }),
+    onSuccess: (res) => {
+      toast.success(`Salvati ${res.prodotti.length} prezzi`);
+      setAnalisi(null);
+      invalidate();
+    },
+    onError: (e) => toast.error((e as Error).message ?? "Errore"),
+  });
 
   return (
     <div className="min-h-[100dvh] bg-background pb-24 text-foreground">
       <AppHeader
         title="Prezzi"
-        subtitle={`${data?.length ?? 0} rilevazioni`}
+        subtitle={uploading ? "Analisi scontrino…" : `${data?.length ?? 0} rilevazioni`}
         right={
           <div className="flex gap-1.5">
             <label
@@ -151,12 +201,32 @@ function PrezziPage() {
         className="absolute h-px w-px overflow-hidden opacity-0"
         onChange={(e) => {
           const f = e.target.files?.[0];
-          if (f) onScontrinoOnly(f);
+          if (f) onScontrino(f);
           e.target.value = "";
         }}
       />
 
       <div className="mx-auto max-w-xl px-4 pt-4">
+        <div className="mb-3 flex gap-2">
+          {(["prezzi", "dashboard"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`flex-1 rounded-full border px-3 py-1.5 text-xs font-medium capitalize ${
+                tab === t
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border/60 text-foreground/70"
+              }`}
+            >
+              {t === "prezzi" ? "Prezzi" : "Dashboard spesa"}
+            </button>
+          ))}
+        </div>
+
+        {tab === "dashboard" ? (
+          <DashboardSpesa spese={spese ?? []} />
+        ) : (
+        <>
         <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-3">
           {(["tutti", ...SUPERMERCATI] as const).map((s) => (
             <button
@@ -188,7 +258,20 @@ function PrezziPage() {
             ))}
           </ul>
         )}
+        </>
+        )}
       </div>
+
+      {analisi && (
+        <AnteprimaScontrino
+          analisi={analisi}
+          saving={importM.isPending}
+          onClose={() => setAnalisi(null)}
+          onConfirm={(payload) =>
+            importM.mutate({ scontrino_path: analisi.path, ...payload })
+          }
+        />
+      )}
 
       {open && (
         <AddPrezzoSheet
