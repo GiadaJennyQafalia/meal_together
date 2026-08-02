@@ -78,7 +78,7 @@ function PrezziPage() {
     supermercato: string;
     data: string | null;
     totale: number | null;
-    prodotti: { nome: string; prezzo: number; unita: string | null }[];
+    prodotti: { nome: string; quantita: number; prezzo: number; unita: string | null }[];
   } | null>(null);
 
 
@@ -246,17 +246,41 @@ function PrezziPage() {
         {filtered.length === 0 ? (
           <p className="mt-10 text-center text-sm text-muted-foreground">Nessun prezzo salvato.</p>
         ) : (
-          <ul className="flex flex-col gap-2.5">
-            {filtered.map((p) => (
-              <li key={p.id}>
-                <PrezzoCard
-                  prezzo={p}
-                  onDelete={() => delM.mutate(p.id)}
-                  onEdit={() => setEditing(p)}
-                />
-              </li>
-            ))}
-          </ul>
+<ul className="flex flex-col gap-2">
+  {righe.map((r, i) => (
+    <li key={i} className="flex items-center gap-2">
+      <div className="min-w-0 flex-1">
+        <input
+          value={r.nome}
+          onChange={(e) =>
+            setRighe((prev) =>
+              prev.map((x, j) => (j === i ? { ...x, nome: e.target.value } : x)),
+            )
+          }
+          className="w-full rounded-md border border-border/60 bg-paper px-2 py-1.5 text-sm text-paper-foreground"
+        />
+        {r.quantita !== 1 && (
+          <span className="ml-0.5 mt-0.5 block text-[10px] text-foreground/50">
+            ×{r.quantita} sullo scontrino — prezzo già diviso per unità
+          </span>
+        )}
+      </div>
+      <PrezzoRigaInput
+        value={r.prezzo}
+        onChange={(v) =>
+          setRighe((prev) => prev.map((x, j) => (j === i ? { ...x, prezzo: v } : x)))
+        }
+      />
+      <button
+        onClick={() => setRighe((prev) => prev.filter((_, j) => j !== i))}
+        className="rounded-md p-1 text-foreground/40 hover:text-destructive"
+        aria-label="Rimuovi riga"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </li>
+  ))}
+</ul>
         )}
         </>
         )}
@@ -270,6 +294,33 @@ function PrezziPage() {
           onConfirm={(payload) =>
             importM.mutate({ scontrino_path: analisi.path, ...payload })
           }
+          /**
+ * Input prezzo con stato di digitazione locale, separato dal valore numerico.
+ * Evita il bug per cui virgola/punto venivano cancellati ad ogni tasto premuto.
+ */
+function PrezzoRigaInput({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  const [text, setText] = useState(String(value).replace(".", ","));
+
+  return (
+    <input
+      inputMode="decimal"
+      value={text}
+      onChange={(e) => {
+        const raw = e.target.value.replace(/[^0-9,]/g, "");
+        setText(raw);
+        const num = parseFloat(raw.replace(",", "."));
+        onChange(Number.isFinite(num) ? num : 0);
+      }}
+      className="tabular w-20 rounded-md border border-border/60 bg-paper px-2 py-1.5 text-sm text-paper-foreground"
+    />
+  );
+}
         />
       )}
 
@@ -406,13 +457,13 @@ type AddPayload = {
   foto: File | null;
 };
 
-type RigaEstratta = { nome: string; prezzo: number; unita: string | null };
+type RigaEstratta = { nome: string; quantita: number; prezzo: number; unita: string | null };
 
 type AnteprimaPayload = {
   supermercato: string;
   data: string | null;
   totale: number | null;
-  prodotti: RigaEstratta[];
+  prodotti: { nome: string; prezzo: number; unita: string | null }[];
 };
 
 function AnteprimaScontrino({
@@ -513,7 +564,9 @@ function AnteprimaScontrino({
               supermercato: sup,
               data: dataAcq,
               totale: Math.round(totale * 100) / 100,
-              prodotti: righe.filter((r) => r.nome.trim()),
+              prodotti: righe
+                .filter((r) => r.nome.trim())
+                .map((r) => ({ nome: r.nome, prezzo: r.prezzo, unita: r.unita })),
             })
           }
         >
@@ -535,37 +588,64 @@ const COLORI_SUPER: Record<string, string> = {
 function DashboardSpesa({ spese }: { spese: SpesaScontrino[] }) {
   const [periodo, setPeriodo] = useState<"settimana" | "mese" | "anno">("mese");
 
-  const { rows, supermercati, totale } = useMemo(() => {
-    const bucket = new Map<string, Record<string, number>>();
-    const sups = new Set<string>();
-    let somma = 0;
-    for (const s of spese) {
-      if (s.totale == null) continue;
-      const d = parseISO(s.data_acquisto);
-      const start =
-        periodo === "settimana"
-          ? startOfWeek(d, { weekStartsOn: 1 })
-          : periodo === "mese"
-            ? startOfMonth(d)
-            : startOfYear(d);
-      const label =
-        periodo === "settimana"
-          ? format(start, "d MMM", { locale: it })
-          : periodo === "mese"
-            ? format(start, "MMM yy", { locale: it })
-            : format(start, "yyyy");
-      const key = `${format(start, "yyyy-MM-dd")}|${label}`;
-      const cur = bucket.get(key) ?? {};
-      cur[s.supermercato] = (cur[s.supermercato] ?? 0) + s.totale;
-      bucket.set(key, cur);
-      sups.add(s.supermercato);
-      somma += s.totale;
+const { rows, supermercati, totale, nScontrini, totalePeriodoLabel } = useMemo(() => {
+  const bucket = new Map<string, Record<string, number>>();
+  const sups = new Set<string>();
+
+  const startOfCurrent =
+    periodo === "settimana"
+      ? startOfWeek(new Date(), { weekStartsOn: 1 })
+      : periodo === "mese"
+        ? startOfMonth(new Date())
+        : startOfYear(new Date());
+  const currentKey = format(startOfCurrent, "yyyy-MM-dd");
+  let sommaPeriodoCorrente = 0;
+  let nScontriniPeriodoCorrente = 0;
+
+  for (const s of spese) {
+    if (s.totale == null) continue;
+    const d = parseISO(s.data_acquisto);
+    const start =
+      periodo === "settimana"
+        ? startOfWeek(d, { weekStartsOn: 1 })
+        : periodo === "mese"
+          ? startOfMonth(d)
+          : startOfYear(d);
+    const label =
+      periodo === "settimana"
+        ? format(start, "d MMM", { locale: it })
+        : periodo === "mese"
+          ? format(start, "MMM yy", { locale: it })
+          : format(start, "yyyy");
+    const key = `${format(start, "yyyy-MM-dd")}|${label}`;
+    const cur = bucket.get(key) ?? {};
+    cur[s.supermercato] = (cur[s.supermercato] ?? 0) + s.totale;
+    bucket.set(key, cur);
+    sups.add(s.supermercato);
+    if (format(start, "yyyy-MM-dd") === currentKey) {
+      sommaPeriodoCorrente += s.totale;
+      nScontriniPeriodoCorrente += 1;
     }
-    const rows = Array.from(bucket.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, vals]) => ({ periodo: key.split("|")[1], ...vals }));
-    return { rows, supermercati: Array.from(sups), totale: somma };
-  }, [spese, periodo]);
+  }
+  const rows = Array.from(bucket.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, vals]) => ({ periodo: key.split("|")[1], ...vals }));
+
+  const label =
+    periodo === "settimana"
+      ? "Totale questa settimana"
+      : periodo === "mese"
+        ? "Totale questo mese"
+        : "Totale quest'anno";
+
+  return {
+    rows,
+    supermercati: Array.from(sups),
+    totale: sommaPeriodoCorrente,
+    nScontrini: nScontriniPeriodoCorrente,
+    totalePeriodoLabel: label,
+  };
+}, [spese, periodo]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -585,15 +665,14 @@ function DashboardSpesa({ spese }: { spese: SpesaScontrino[] }) {
         ))}
       </div>
 
-      <div className="card-paper px-4 py-3">
-        <p className="text-[11px] uppercase tracking-wider text-paper-foreground/60">
-          Totale complessivo
-        </p>
-        <p className="tabular font-serif text-2xl text-paper-foreground">
-          {totale.toFixed(2)} €
-        </p>
-        <p className="text-[12px] text-paper-foreground/60">{spese.length} scontrini</p>
-      </div>
+<div className="card-paper px-4 py-3">
+  <p className="text-[11px] uppercase tracking-wider text-paper-foreground/60">
+    {totalePeriodoLabel}
+  </p>
+  <p className="tabular font-serif text-2xl text-paper-foreground">
+    {totale.toFixed(2)} €
+  </p>
+  <p className="text-[12px] text-paper-foreground/60">{nScontrini} scontrini</p>
 
       {rows.length === 0 ? (
         <p className="mt-6 text-center text-sm text-muted-foreground">
