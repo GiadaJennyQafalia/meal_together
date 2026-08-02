@@ -333,6 +333,36 @@ export type Database = {
         }
         Relationships: []
       }
+      spese_scontrino: {
+        Row: {
+          created_at: string
+          data_acquisto: string
+          foto_scontrino: string | null
+          id: string
+          n_prodotti: number
+          supermercato: string
+          totale: number | null
+        }
+        Insert: {
+          created_at?: string
+          data_acquisto?: string
+          foto_scontrino?: string | null
+          id?: string
+          n_prodotti?: number
+          supermercato?: string
+          totale?: number | null
+        }
+        Update: {
+          created_at?: string
+          data_acquisto?: string
+          foto_scontrino?: string | null
+          id?: string
+          n_prodotti?: number
+          supermercato?: string
+          totale?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
