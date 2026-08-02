@@ -75,10 +75,12 @@ Cosa c'è ora in casa (frigo/freezer/dispensa) — usalo come base per gli svuot
 {DISPENSA_JSON}
 \`\`\`
 
-## Offerte caricate questa settimana
+## Storico prezzi rilevati (ultimi 60 giorni)
+
+Prezzi reali raccolti dagli scontrini e dagli inserimenti manuali, per supermercato. Usali per confrontare i prezzi tra supermercati, stimare il costo della lista della spesa e consigliare dove conviene comprare.
 
 \`\`\`
-{OFFERTE}
+{STORICO_PREZZI}
 \`\`\`
 
 ## Output finale (quando l'utente chiede di generare il piano)
@@ -91,7 +93,11 @@ Cosa c'è ora in casa (frigo/freezer/dispensa) — usalo come base per gli svuot
 
 Rispondi sempre in italiano, tono colloquiale e diretto. Markdown minimo in chat, va bene più strutturato solo nel piano finale.`;
 
-export function buildSystemPrompt(ricette: unknown[], dispensa: unknown[] = []): string {
+export function buildSystemPrompt(
+  ricette: unknown[],
+  dispensa: unknown[] = [],
+  storicoPrezzi: unknown[] = [],
+): string {
   return SYSTEM_PROMPT_TEMPLATE.replace(
     "{RICETTARIO_JSON}",
     JSON.stringify(ricette, null, 2),
@@ -101,7 +107,9 @@ export function buildSystemPrompt(ricette: unknown[], dispensa: unknown[] = []):
       ? JSON.stringify(dispensa, null, 2)
       : "Dispensa vuota (nessun articolo registrato).",
   ).replace(
-    "{OFFERTE}",
-    "Nessuna offerta caricata questa settimana (funzionalità offerte non ancora attiva).",
+    "{STORICO_PREZZI}",
+    storicoPrezzi.length
+      ? JSON.stringify(storicoPrezzi, null, 2)
+      : "Nessun prezzo rilevato finora.",
   );
 }
