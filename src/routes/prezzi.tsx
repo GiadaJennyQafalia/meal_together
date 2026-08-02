@@ -1,9 +1,27 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Plus, Trash2, Camera, X, Pencil } from "lucide-react";
+import { Plus, Trash2, Camera, X, Pencil, Loader2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
+  format,
+  startOfWeek,
+  startOfMonth,
+  startOfYear,
+  parseISO,
+} from "date-fns";
+import { it } from "date-fns/locale";
 
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
@@ -14,9 +32,13 @@ import {
   deletePrezzo,
   updatePrezzo,
   listPrezzi,
+  listSpese,
+  analizzaScontrinoPrezzi,
+  importScontrinoInPrezzi,
   SUPERMERCATI,
   UNITA_PREZZO,
   type PrezzoProdotto,
+  type SpesaScontrino,
 } from "@/lib/prezzi.functions";
 
 export const Route = createFileRoute("/prezzi")({
@@ -39,16 +61,31 @@ function PrezziPage() {
   const add = useServerFn(addPrezzo);
   const del = useServerFn(deletePrezzo);
   const upd = useServerFn(updatePrezzo);
+  const analizza = useServerFn(analizzaScontrinoPrezzi);
+  const importa = useServerFn(importScontrinoInPrezzi);
+  const loadSpese = useServerFn(listSpese);
 
   const { data } = useQuery({ queryKey: ["prezzi"], queryFn: () => load() });
+  const { data: spese } = useQuery({ queryKey: ["spese"], queryFn: () => loadSpese() });
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PrezzoProdotto | null>(null);
   const [uploading, setUploading] = useState(false);
   const [filter, setFilter] = useState<string>("tutti");
+  const [tab, setTab] = useState<"prezzi" | "dashboard">("prezzi");
+  const [analisi, setAnalisi] = useState<{
+    path: string;
+    supermercato: string;
+    data: string | null;
+    totale: number | null;
+    prodotti: { nome: string; prezzo: number; unita: string | null }[];
+  } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["prezzi"] });
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["prezzi"] });
+    qc.invalidateQueries({ queryKey: ["spese"] });
+  };
 
   const delM = useMutation({
     mutationFn: (id: string) => del({ data: { id } }),
@@ -97,32 +134,45 @@ function PrezziPage() {
     }
   }
 
-  async function onScontrinoOnly(file: File) {
+  async function onScontrino(file: File) {
     const path = await uploadScontrino(file);
     if (!path) return;
+    setUploading(true);
     try {
-      await add({
-        data: {
-          nome_prodotto: `Scontrino ${new Date().toLocaleDateString("it-IT")}`,
-          supermercato: "altro",
-          prezzo: 0,
-          unita: "€/pezzo",
-          fonte: "scontrino",
-          foto_scontrino: path,
-        },
-      });
-      toast.success("Scontrino salvato");
-      invalidate();
+      const res = await analizza({ data: { scontrino_path: path } });
+      if (res.prodotti.length === 0) {
+        toast.error("Nessun prodotto riconosciuto nello scontrino");
+        return;
+      }
+      setAnalisi({ path, ...res });
     } catch (e) {
-      toast.error((e as Error).message ?? "Errore");
+      toast.error((e as Error).message ?? "Analisi scontrino fallita");
+    } finally {
+      setUploading(false);
     }
   }
+
+  const importM = useMutation({
+    mutationFn: (payload: {
+      scontrino_path: string;
+      supermercato: string;
+      data: string | null;
+      totale: number | null;
+      prodotti: { nome: string; prezzo: number; unita: string | null }[];
+    }) => importa({ data: payload }),
+    onSuccess: (res) => {
+      toast.success(`Salvati ${res.prodotti.length} prezzi`);
+      setAnalisi(null);
+      invalidate();
+    },
+    onError: (e) => toast.error((e as Error).message ?? "Errore"),
+  });
 
   return (
     <div className="min-h-[100dvh] bg-background pb-24 text-foreground">
       <AppHeader
         title="Prezzi"
-        subtitle={`${data?.length ?? 0} rilevazioni`}
+        subtitle={uploading ? "Analisi scontrino…" : `${data?.length ?? 0} rilevazioni`}
         right={
           <div className="flex gap-1.5">
             <label
@@ -151,12 +201,32 @@ function PrezziPage() {
         className="absolute h-px w-px overflow-hidden opacity-0"
         onChange={(e) => {
           const f = e.target.files?.[0];
-          if (f) onScontrinoOnly(f);
+          if (f) onScontrino(f);
           e.target.value = "";
         }}
       />
 
       <div className="mx-auto max-w-xl px-4 pt-4">
+        <div className="mb-3 flex gap-2">
+          {(["prezzi", "dashboard"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`flex-1 rounded-full border px-3 py-1.5 text-xs font-medium capitalize ${
+                tab === t
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border/60 text-foreground/70"
+              }`}
+            >
+              {t === "prezzi" ? "Prezzi" : "Dashboard spesa"}
+            </button>
+          ))}
+        </div>
+
+        {tab === "dashboard" ? (
+          <DashboardSpesa spese={spese ?? []} />
+        ) : (
+        <>
         <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-3">
           {(["tutti", ...SUPERMERCATI] as const).map((s) => (
             <button
@@ -188,7 +258,20 @@ function PrezziPage() {
             ))}
           </ul>
         )}
+        </>
+        )}
       </div>
+
+      {analisi && (
+        <AnteprimaScontrino
+          analisi={analisi}
+          saving={importM.isPending}
+          onClose={() => setAnalisi(null)}
+          onConfirm={(payload) =>
+            importM.mutate({ scontrino_path: analisi.path, ...payload })
+          }
+        />
+      )}
 
       {open && (
         <AddPrezzoSheet
@@ -322,6 +405,224 @@ type AddPayload = {
   unita: string;
   foto: File | null;
 };
+
+type RigaEstratta = { nome: string; prezzo: number; unita: string | null };
+
+type AnteprimaPayload = {
+  supermercato: string;
+  data: string | null;
+  totale: number | null;
+  prodotti: RigaEstratta[];
+};
+
+function AnteprimaScontrino({
+  analisi,
+  saving,
+  onClose,
+  onConfirm,
+}: {
+  analisi: AnteprimaPayload & { path: string };
+  saving: boolean;
+  onClose: () => void;
+  onConfirm: (p: AnteprimaPayload) => void;
+}) {
+  const [sup, setSup] = useState(analisi.supermercato);
+  const [dataAcq, setDataAcq] = useState(
+    analisi.data ?? new Date().toISOString().slice(0, 10),
+  );
+  const [righe, setRighe] = useState<RigaEstratta[]>(analisi.prodotti);
+
+  const totale = righe.reduce((s, r) => s + (Number.isFinite(r.prezzo) ? r.prezzo : 0), 0);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
+      <div className="max-h-[88dvh] w-full max-w-xl overflow-y-auto rounded-t-2xl bg-background p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-serif text-lg">Controlla lo scontrino</h2>
+          <button onClick={onClose} className="rounded-md p-1 text-foreground/60">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <select
+            value={sup}
+            onChange={(e) => setSup(e.target.value)}
+            className="rounded-md border border-border/60 bg-paper px-2 py-1.5 text-sm"
+          >
+            {SUPERMERCATI.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+          <input
+            type="date"
+            value={dataAcq}
+            onChange={(e) => setDataAcq(e.target.value)}
+            className="tabular rounded-md border border-border/60 bg-paper px-2 py-1.5 text-sm"
+          />
+        </div>
+
+        <ul className="flex flex-col gap-2">
+          {righe.map((r, i) => (
+            <li key={i} className="flex items-center gap-2">
+              <input
+                value={r.nome}
+                onChange={(e) =>
+                  setRighe((prev) =>
+                    prev.map((x, j) => (j === i ? { ...x, nome: e.target.value } : x)),
+                  )
+                }
+                className="min-w-0 flex-1 rounded-md border border-border/60 bg-paper px-2 py-1.5 text-sm text-paper-foreground"
+              />
+              <input
+                inputMode="decimal"
+                value={String(r.prezzo).replace(".", ",")}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value.replace(/[^0-9,.]/g, "").replace(",", "."));
+                  setRighe((prev) =>
+                    prev.map((x, j) =>
+                      j === i ? { ...x, prezzo: Number.isFinite(v) ? v : 0 } : x,
+                    ),
+                  );
+                }}
+                className="tabular w-20 rounded-md border border-border/60 bg-paper px-2 py-1.5 text-sm text-paper-foreground"
+              />
+              <button
+                onClick={() => setRighe((prev) => prev.filter((_, j) => j !== i))}
+                className="rounded-md p-1 text-foreground/40 hover:text-destructive"
+                aria-label="Rimuovi riga"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        <div className="mt-3 flex items-center justify-between text-sm">
+          <span className="text-foreground/70">{righe.length} prodotti</span>
+          <span className="tabular font-medium">Totale {totale.toFixed(2)} €</span>
+        </div>
+
+        <Button
+          className="mt-3 w-full"
+          disabled={saving || righe.length === 0}
+          onClick={() =>
+            onConfirm({
+              supermercato: sup,
+              data: dataAcq,
+              totale: Math.round(totale * 100) / 100,
+              prodotti: righe.filter((r) => r.nome.trim()),
+            })
+          }
+        >
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Conferma e salva"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+const COLORI_SUPER: Record<string, string> = {
+  Lidl: "#19350C",
+  Aldi: "#687D31",
+  Eurospar: "#A8A093",
+  dm: "#C4703A",
+  altro: "#8B8B7A",
+};
+
+function DashboardSpesa({ spese }: { spese: SpesaScontrino[] }) {
+  const [periodo, setPeriodo] = useState<"settimana" | "mese" | "anno">("mese");
+
+  const { rows, supermercati, totale } = useMemo(() => {
+    const bucket = new Map<string, Record<string, number>>();
+    const sups = new Set<string>();
+    let somma = 0;
+    for (const s of spese) {
+      if (s.totale == null) continue;
+      const d = parseISO(s.data_acquisto);
+      const start =
+        periodo === "settimana"
+          ? startOfWeek(d, { weekStartsOn: 1 })
+          : periodo === "mese"
+            ? startOfMonth(d)
+            : startOfYear(d);
+      const label =
+        periodo === "settimana"
+          ? format(start, "d MMM", { locale: it })
+          : periodo === "mese"
+            ? format(start, "MMM yy", { locale: it })
+            : format(start, "yyyy");
+      const key = `${format(start, "yyyy-MM-dd")}|${label}`;
+      const cur = bucket.get(key) ?? {};
+      cur[s.supermercato] = (cur[s.supermercato] ?? 0) + s.totale;
+      bucket.set(key, cur);
+      sups.add(s.supermercato);
+      somma += s.totale;
+    }
+    const rows = Array.from(bucket.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, vals]) => ({ periodo: key.split("|")[1], ...vals }));
+    return { rows, supermercati: Array.from(sups), totale: somma };
+  }, [spese, periodo]);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex gap-2">
+        {(["settimana", "mese", "anno"] as const).map((p) => (
+          <button
+            key={p}
+            onClick={() => setPeriodo(p)}
+            className={`flex-1 rounded-full border px-3 py-1.5 text-xs font-medium capitalize ${
+              periodo === p
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border/60 text-foreground/70"
+            }`}
+          >
+            {p}
+          </button>
+        ))}
+      </div>
+
+      <div className="card-paper px-4 py-3">
+        <p className="text-[11px] uppercase tracking-wider text-paper-foreground/60">
+          Totale complessivo
+        </p>
+        <p className="tabular font-serif text-2xl text-paper-foreground">
+          {totale.toFixed(2)} €
+        </p>
+        <p className="text-[12px] text-paper-foreground/60">{spese.length} scontrini</p>
+      </div>
+
+      {rows.length === 0 ? (
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          Nessuna spesa registrata. Carica uno scontrino per iniziare.
+        </p>
+      ) : (
+        <div className="card-paper h-72 px-2 py-3">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={rows}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.08)" />
+              <XAxis dataKey="periodo" fontSize={11} />
+              <YAxis fontSize={11} width={38} />
+              <Tooltip formatter={(v: number) => `${Number(v).toFixed(2)} €`} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              {supermercati.map((s) => (
+                <Bar
+                  key={s}
+                  dataKey={s}
+                  stackId="spesa"
+                  fill={COLORI_SUPER[s] ?? "#8B8B7A"}
+                />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function AddPrezzoSheet({
   onClose,
