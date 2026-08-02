@@ -144,7 +144,7 @@ function PrezziPage() {
         }
       />
       <input
-        ref={fileRef}
+        id="scontrino-upload-prezzi"
         type="file"
         accept="image/*"
         capture="environment"
