@@ -111,6 +111,7 @@ export async function extractProductsFromReceipt(input: {
 
 export type ExtractedPriceRow = {
   nome: string;
+  quantita: number;
   prezzo: number;
   unita: string | null;
 };
@@ -130,13 +131,14 @@ Analizza l'immagine dello scontrino e restituisci SOLO un oggetto JSON valido, s
   "data": string|null,         // formato YYYY-MM-DD se leggibile, altrimenti null
   "totale": number|null,       // totale dello scontrino se leggibile
   "prodotti": [
-    { "nome": string, "prezzo": number, "unita": string|null }
+    { "nome": string, "quantita": number, "prezzo_totale_riga": number, "unita": string|null }
   ]
 }
 
 Regole:
 - Ignora righe che non sono prodotti (totale, subtotale, sconto, contanti, resto, IVA, data, cassa).
-- "prezzo" e' il prezzo pagato per quella riga, in euro, come numero con punto decimale.
+- "quantita" e' il numero di unita'/pezzi/kg acquistati su quella riga (es. se lo scontrino mostra "3x" o "3 PZ" metti 3). Se non specificato, metti 1. NON calcolare divisioni: restituisci solo il numero letto o dedotto dallo scontrino.
+- "prezzo_totale_riga" e' l'importo TOTALE pagato per quella riga cosi' come stampato sullo scontrino (es. se "3x Mele" costano in totale 3,60€, metti 3.60, non il prezzo di una singola mela). Numero con punto decimale.
 - "unita" es. "€/pezzo", "€/kg", "€/l"; null se non desumibile.
 - Nome pulito e leggibile, senza codici o sigle EAN.
 - Se lo scontrino e' illeggibile restituisci {"supermercato":null,"data":null,"totale":null,"prodotti":[]}.
@@ -183,15 +185,33 @@ function normalizePriceRow(raw: unknown): ExtractedPriceRow | null {
   const r = raw as Record<string, unknown>;
   const nome = typeof r.nome === "string" ? r.nome.trim() : "";
   if (!nome) return null;
-  const prezzoNum =
-    typeof r.prezzo === "number"
-      ? r.prezzo
-      : typeof r.prezzo === "string"
-        ? Number(r.prezzo.replace(",", "."))
-        : NaN;
-  if (!Number.isFinite(prezzoNum) || prezzoNum < 0) return null;
+
+  const totaleRigaNum =
+    typeof r.prezzo_totale_riga === "number"
+      ? r.prezzo_totale_riga
+      : typeof r.prezzo_totale_riga === "string"
+        ? Number(r.prezzo_totale_riga.replace(",", "."))
+        : // fallback: se il modello ha comunque risposto con il vecchio campo "prezzo"
+          typeof r.prezzo === "number"
+          ? r.prezzo
+          : typeof r.prezzo === "string"
+            ? Number(r.prezzo.replace(",", "."))
+            : NaN;
+  if (!Number.isFinite(totaleRigaNum) || totaleRigaNum < 0) return null;
+
+  const quantitaNum =
+    typeof r.quantita === "number" && Number.isFinite(r.quantita) && r.quantita > 0
+      ? r.quantita
+      : typeof r.quantita === "string" && Number(r.quantita.replace(",", ".")) > 0
+        ? Number(r.quantita.replace(",", "."))
+        : 1;
+
   const unita = typeof r.unita === "string" && r.unita.trim() ? r.unita.trim() : null;
-  return { nome, prezzo: Math.round(prezzoNum * 100) / 100, unita };
+
+  // Prezzo per-unita' calcolato deterministicamente in codice (non fidarsi della matematica del modello).
+  const prezzoUnitario = Math.round((totaleRigaNum / quantitaNum) * 100) / 100;
+
+  return { nome, quantita: quantitaNum, prezzo: prezzoUnitario, unita };
 }
 
 /**
