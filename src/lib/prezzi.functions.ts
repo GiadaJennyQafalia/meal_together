@@ -17,6 +17,16 @@ export type PrezzoProdotto = {
 export const SUPERMERCATI = ["Lidl", "Aldi", "Eurospar", "dm", "altro"] as const;
 export const UNITA_PREZZO = ["€/kg", "€/pezzo", "€/l", "€/100g", "€/confezione"] as const;
 
+export type SpesaScontrino = {
+  id: string;
+  data_acquisto: string;
+  supermercato: string;
+  totale: number | null;
+  n_prodotti: number;
+  foto_scontrino: string | null;
+  created_at: string;
+};
+
 function server() {
   return createClient(
     process.env.SUPABASE_URL!,
