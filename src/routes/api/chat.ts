@@ -60,14 +60,23 @@ export const Route = createFileRoute("/api/chat")({
           { auth: { persistSession: false, autoRefreshToken: false } },
         );
 
-        const [{ data: ricette }, { data: dispensa }] = await Promise.all([
+        const daData = new Date(Date.now() - 60 * 24 * 3600 * 1000)
+          .toISOString()
+          .slice(0, 10);
+        const [{ data: ricette }, { data: dispensa }, { data: prezzi }] = await Promise.all([
           supabase.from("ricette").select("*"),
           supabase
             .from("dispensa")
             .select("nome_ingrediente, quantita, unita, peso, categoria, scadenza")
             .order("scadenza", { ascending: true, nullsFirst: false }),
+          supabase
+            .from("prezzi_prodotti")
+            .select("nome_prodotto, supermercato, prezzo, unita, data_rilevazione")
+            .gte("data_rilevazione", daData)
+            .order("data_rilevazione", { ascending: false })
+            .limit(300),
         ]);
-        const system = buildSystemPrompt(ricette ?? [], dispensa ?? []);
+        const system = buildSystemPrompt(ricette ?? [], dispensa ?? [], prezzi ?? []);
 
         const uiMessages = messages as UIMessage[];
         // Persist the last user message (idempotent-ish: only latest one).
