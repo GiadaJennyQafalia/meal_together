@@ -243,44 +243,20 @@ function PrezziPage() {
           ))}
         </div>
 
-        {filtered.length === 0 ? (
+{filtered.length === 0 ? (
           <p className="mt-10 text-center text-sm text-muted-foreground">Nessun prezzo salvato.</p>
         ) : (
-<ul className="flex flex-col gap-2">
-  {righe.map((r, i) => (
-    <li key={i} className="flex items-center gap-2">
-      <div className="min-w-0 flex-1">
-        <input
-          value={r.nome}
-          onChange={(e) =>
-            setRighe((prev) =>
-              prev.map((x, j) => (j === i ? { ...x, nome: e.target.value } : x)),
-            )
-          }
-          className="w-full rounded-md border border-border/60 bg-paper px-2 py-1.5 text-sm text-paper-foreground"
-        />
-        {r.quantita !== 1 && (
-          <span className="ml-0.5 mt-0.5 block text-[10px] text-foreground/50">
-            ×{r.quantita} sullo scontrino — prezzo già diviso per unità
-          </span>
-        )}
-      </div>
-      <PrezzoRigaInput
-        value={r.prezzo}
-        onChange={(v) =>
-          setRighe((prev) => prev.map((x, j) => (j === i ? { ...x, prezzo: v } : x)))
-        }
-      />
-      <button
-        onClick={() => setRighe((prev) => prev.filter((_, j) => j !== i))}
-        className="rounded-md p-1 text-foreground/40 hover:text-destructive"
-        aria-label="Rimuovi riga"
-      >
-        <Trash2 className="h-4 w-4" />
-      </button>
-    </li>
-  ))}
-</ul>
+          <ul className="flex flex-col gap-2.5">
+            {filtered.map((p) => (
+              <li key={p.id}>
+                <PrezzoCard
+                  prezzo={p}
+                  onDelete={() => delM.mutate(p.id)}
+                  onEdit={() => setEditing(p)}
+                />
+              </li>
+            ))}
+          </ul>
         )}
         </>
         )}
@@ -294,33 +270,6 @@ function PrezziPage() {
           onConfirm={(payload) =>
             importM.mutate({ scontrino_path: analisi.path, ...payload })
           }
-          /**
- * Input prezzo con stato di digitazione locale, separato dal valore numerico.
- * Evita il bug per cui virgola/punto venivano cancellati ad ogni tasto premuto.
- */
-function PrezzoRigaInput({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (v: number) => void;
-}) {
-  const [text, setText] = useState(String(value).replace(".", ","));
-
-  return (
-    <input
-      inputMode="decimal"
-      value={text}
-      onChange={(e) => {
-        const raw = e.target.value.replace(/[^0-9,]/g, "");
-        setText(raw);
-        const num = parseFloat(raw.replace(",", "."));
-        onChange(Number.isFinite(num) ? num : 0);
-      }}
-      className="tabular w-20 rounded-md border border-border/60 bg-paper px-2 py-1.5 text-sm text-paper-foreground"
-    />
-  );
-}
         />
       )}
 
@@ -515,30 +464,30 @@ function AnteprimaScontrino({
           />
         </div>
 
-        <ul className="flex flex-col gap-2">
+<ul className="flex flex-col gap-2">
           {righe.map((r, i) => (
             <li key={i} className="flex items-center gap-2">
-              <input
-                value={r.nome}
-                onChange={(e) =>
-                  setRighe((prev) =>
-                    prev.map((x, j) => (j === i ? { ...x, nome: e.target.value } : x)),
-                  )
+              <div className="min-w-0 flex-1">
+                <input
+                  value={r.nome}
+                  onChange={(e) =>
+                    setRighe((prev) =>
+                      prev.map((x, j) => (j === i ? { ...x, nome: e.target.value } : x)),
+                    )
+                  }
+                  className="w-full rounded-md border border-border/60 bg-paper px-2 py-1.5 text-sm text-paper-foreground"
+                />
+                {r.quantita !== 1 && (
+                  <span className="ml-0.5 mt-0.5 block text-[10px] text-foreground/50">
+                    ×{r.quantita} sullo scontrino — prezzo già diviso per unità
+                  </span>
+                )}
+              </div>
+              <PrezzoRigaInput
+                value={r.prezzo}
+                onChange={(v) =>
+                  setRighe((prev) => prev.map((x, j) => (j === i ? { ...x, prezzo: v } : x)))
                 }
-                className="min-w-0 flex-1 rounded-md border border-border/60 bg-paper px-2 py-1.5 text-sm text-paper-foreground"
-              />
-              <input
-                inputMode="decimal"
-                value={String(r.prezzo).replace(".", ",")}
-                onChange={(e) => {
-                  const v = parseFloat(e.target.value.replace(/[^0-9,.]/g, "").replace(",", "."));
-                  setRighe((prev) =>
-                    prev.map((x, j) =>
-                      j === i ? { ...x, prezzo: Number.isFinite(v) ? v : 0 } : x,
-                    ),
-                  );
-                }}
-                className="tabular w-20 rounded-md border border-border/60 bg-paper px-2 py-1.5 text-sm text-paper-foreground"
               />
               <button
                 onClick={() => setRighe((prev) => prev.filter((_, j) => j !== i))}
@@ -577,6 +526,33 @@ function AnteprimaScontrino({
   );
 }
 
+/**
+ * Input prezzo con stato di digitazione locale, separato dal valore numerico.
+ * Evita il bug per cui virgola/punto venivano cancellati ad ogni tasto premuto.
+ */
+function PrezzoRigaInput({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  const [text, setText] = useState(String(value).replace(".", ","));
+
+  return (
+    <input
+      inputMode="decimal"
+      value={text}
+      onChange={(e) => {
+        const raw = e.target.value.replace(/[^0-9,]/g, "");
+        setText(raw);
+        const num = parseFloat(raw.replace(",", "."));
+        onChange(Number.isFinite(num) ? num : 0);
+      }}
+      className="tabular w-20 rounded-md border border-border/60 bg-paper px-2 py-1.5 text-sm text-paper-foreground"
+    />
+  );
+}
 const COLORI_SUPER: Record<string, string> = {
   Lidl: "#19350C",
   Aldi: "#687D31",
