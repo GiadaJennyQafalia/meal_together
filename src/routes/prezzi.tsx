@@ -125,14 +125,14 @@ function PrezziPage() {
         subtitle={`${data?.length ?? 0} rilevazioni`}
         right={
           <div className="flex gap-1.5">
-            <button
-              onClick={() => fileRef.current?.click()}
-              disabled={uploading}
-              className="inline-flex items-center gap-1 rounded-full border border-border/60 px-3 py-1 text-[11px] uppercase tracking-wider text-foreground/70 hover:bg-muted/40 disabled:opacity-50"
-            >
-              <Camera className="h-3 w-3" />
-              Scontrino
-            </button>
+            <label
+             htmlFor="scontrino-upload-prezzi"
+             aria-disabled={uploading}
+             className="inline-flex items-center gap-1 rounded-full border border-border/60 px-3 py-1 text-[11px] uppercase tracking-wider text-foreground/70 hover:bg-muted/40 aria-disabled:opacity-50 aria-disabled:pointer-events-none"
+           >
+            <Camera className="h-3 w-3" />
+            Scontrino
+          </label>
             <button
               onClick={() => setOpen(true)}
               className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-[11px] uppercase tracking-wider text-primary-foreground"
