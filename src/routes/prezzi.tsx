@@ -649,6 +649,7 @@ const { rows, supermercati, totale, nScontrini, totalePeriodoLabel } = useMemo((
     {totale.toFixed(2)} €
   </p>
   <p className="text-[12px] text-paper-foreground/60">{nScontrini} scontrini</p>
+  </div>
 
       {rows.length === 0 ? (
         <p className="mt-6 text-center text-sm text-muted-foreground">
