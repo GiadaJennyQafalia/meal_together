@@ -80,7 +80,7 @@ function PrezziPage() {
     totale: number | null;
     prodotti: { nome: string; prezzo: number; unita: string | null }[];
   } | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["prezzi"] });
