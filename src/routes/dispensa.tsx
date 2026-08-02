@@ -57,7 +57,6 @@ function DispensaPage() {
   const [editing, setEditing] = useState<DispensaItem | null>(null);
   const [filter, setFilter] = useState<string>("tutti");
   const [uploading, setUploading] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["dispensa"] });
 
@@ -121,14 +120,14 @@ function DispensaPage() {
         subtitle={`${data?.length ?? 0} voci${scadendo ? ` · ${scadendo} in scadenza` : ""}`}
         right={
           <div className="flex gap-1.5">
-            <button
-              onClick={() => fileRef.current?.click()}
-              disabled={uploading}
-              className="inline-flex items-center gap-1 rounded-full border border-border/60 px-3 py-1 text-[11px] uppercase tracking-wider text-foreground/70 hover:bg-muted/40 disabled:opacity-50"
+            <label
+              htmlFor="scontrino-upload-dispensa"
+              aria-disabled={uploading}
+              className="inline-flex items-center gap-1 rounded-full border border-border/60 px-3 py-1 text-[11px] uppercase tracking-wider text-foreground/70 hover:bg-muted/40 aria-disabled:opacity-50 aria-disabled:pointer-events-none"
             >
               <Camera className="h-3 w-3" />
               {uploading ? "…" : "Scontrino"}
-            </button>
+            </label>
             <button
               onClick={() => setOpen(true)}
               className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-[11px] uppercase tracking-wider text-primary-foreground"
@@ -140,17 +139,17 @@ function DispensaPage() {
         }
       />
       <input
-        ref={fileRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="absolute h-px w-px overflow-hidden opacity-0"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) onScontrino(f);
-          e.target.value = "";
-        }}
-      />
+       id="scontrino-upload-dispensa"
+       type="file"
+       accept="image/*"
+       capture="environment"
+       className="absolute h-px w-px overflow-hidden opacity-0"
+       onChange={(e) => {
+         const f = e.target.files?.[0];
+         if (f) onScontrino(f);
+         e.target.value = "";
+       }}
+     />
 
       <div className="mx-auto max-w-xl px-4 pt-4">
         <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-3">
